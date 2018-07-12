@@ -1,0 +1,163 @@
+import csv
+import glob
+import json
+import multiprocessing
+import os
+import sys
+from collections import Counter
+
+from rdflib.plugins.parsers.ntriples import NTriplesParser
+
+IN_PATH = 'split-test.nt'
+OUT_BASE = './out'
+PARTS_FILE = 'parts.tsv'
+TARGET_SIZE = 3 * 1024
+TASK_TIMEOUT = 10 * 60
+GLOBAL_ID_MARKER = 'id.dbpedia.org/global/'
+
+
+def transform_part(part_name, begin, end):
+    with open(IN_PATH, 'rb') as in_file:
+        in_file.seek(begin)
+        part_bytes = in_file.read(end - begin)
+        part_str = part_bytes.decode('utf8')  # wasteful
+        with PropertyGraphSink(part_name) as sink:
+            ntp = NTriplesParser(sink=sink)
+            ntp.parsestring(part_str)
+
+    return part_name, dict(sink.predicate_count)
+
+
+def compute_parts(target_size=TARGET_SIZE):
+
+    with open(IN_PATH, 'rb') as in_file:
+        part_number = 0
+        file_end = in_file.seek(0, 2)
+        in_file.seek(0)
+        chunk_end = in_file.tell()
+
+        with open(os.path.join(OUT_BASE, PARTS_FILE), 'w') as parts_file:
+            tsvwriter = csv.writer(parts_file, delimiter='\t')
+
+            while chunk_end < file_end:
+                part_number += 1
+                chunk_start = chunk_end
+
+                # seek to the first line break after target
+                in_file.seek(chunk_start + target_size)
+                in_file.readline()
+
+                # find the transition between two subjects
+                final_subject = read_subject_from_line(in_file)
+                bookmark = in_file.tell()
+                while True:
+                    new_subject = read_subject_from_line(in_file)
+                    if new_subject and new_subject == final_subject:
+                        bookmark = in_file.tell()
+                    else:
+                        # seek to the end of the line with a `final_subject`
+                        in_file.seek(bookmark)
+                        chunk_end = bookmark
+                        break
+
+                part_name = os.path.join(OUT_BASE, f'part-{part_number:03}')
+                tsvwriter.writerow([part_name, chunk_start, chunk_end])
+                yield part_name, chunk_start, chunk_end
+
+
+def read_subject_from_line(file_obj):
+    return file_obj.readline().split(b'> <')[0]
+
+
+class PropertyGraphSink(object):
+    def __init__(self, part_name):
+        self.part_name = part_name
+        self.predicate_count = Counter()
+        self.vertex_buffer = {}
+        self.edge_buffer = []
+        self.last_subject = None
+
+    def __enter__(self):
+        if glob.glob(f'{self.part_name}*'):
+            print(f'WARN: files for {self.part_name} already '
+                  f'exist and will be appended to', file=sys.stderr)
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if exc_type:
+            print(self.part_name, file=sys.stderr)
+            print(self.vertex_buffer, file=sys.stderr)
+            print(self.edge_buffer, file=sys.stderr)
+        else:
+            self.flush_buffers()
+
+    def triple(self, subj, pred, obj):
+        if GLOBAL_ID_MARKER not in subj:
+            return
+
+        self.predicate_count[pred] += 1
+        if subj != self.last_subject:
+            self.flush_buffers()
+            self.last_subject = subj
+
+        if GLOBAL_ID_MARKER in obj:
+            self.edge_buffer.append({
+                'outv': subj,
+                'label': pred,
+                'inv': obj
+            })
+        else:
+            self.vertex_buffer['id'] = subj
+            self.vertex_buffer[pred] = obj.toPython()
+
+    def flush_buffers(self):
+        self.flush_vertex()
+        self.flush_edges()
+
+    def flush_vertex(self):
+        with open(f'{self.part_name}_vertices.jsonl', 'a', encoding='utf8') as out_file:
+            if self.vertex_buffer:
+                json.dump(self.vertex_buffer, out_file, default=str)
+                out_file.write('\n')
+
+        self.vertex_buffer = {}
+
+    def flush_edges(self):
+        with open(f'{self.part_name}_edges.jsonl', 'a', encoding='utf8') as out_file:
+            for edge in self.edge_buffer:
+                json.dump(edge, out_file, default=str)
+                out_file.write('\n')
+
+        self.edge_buffer = []
+
+
+def main(parallel=True):
+    if parallel:
+        pool = multiprocessing.Pool()
+        tasks = []
+
+        for part_path, begin, end in compute_parts():
+            tasks.append(pool.apply_async(
+                transform_part, (part_path, begin, end))
+            )
+
+        results = [
+            task.get(timeout=TASK_TIMEOUT)
+            for task in tasks
+        ]
+        pool.close()
+    else:
+        results = [
+            transform_part(part_path, begin, end)
+            for part_path, begin, end in compute_parts()
+        ]
+
+    for res in results:
+        print(res)
+
+
+if __name__ == "__main__":
+    if not os.path.exists(OUT_BASE):
+        os.makedirs(OUT_BASE)
+
+    main(parallel=True)
