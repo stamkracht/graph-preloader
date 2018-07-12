@@ -4,8 +4,9 @@ import json
 import multiprocessing
 import os
 import sys
-from collections import Counter
+from collections import Counter, defaultdict
 
+from rdflib import Literal
 from rdflib.plugins.parsers.ntriples import NTriplesParser
 
 IN_PATH = 'split-test.nt'
@@ -14,6 +15,12 @@ PARTS_FILE = 'parts.tsv'
 TARGET_SIZE = 3 * 1024
 TASK_TIMEOUT = 10 * 60
 GLOBAL_ID_MARKER = 'id.dbpedia.org/global/'
+
+MULTIVALUED_URI_PROPS = [
+    'http://www.w3.org/1999/02/22-rdf-syntax-ns#type',
+    'http://www.w3.org/2002/07/owl#sameAs',
+    'http://dbpedia.org/ontology/wikiPageExternalLink',
+]
 
 
 def transform_part(part_name, begin, end):
@@ -73,7 +80,7 @@ class PropertyGraphSink(object):
     def __init__(self, part_name):
         self.part_name = part_name
         self.predicate_count = Counter()
-        self.vertex_buffer = {}
+        self.vertex_buffer = defaultdict(list)
         self.edge_buffer = []
         self.last_subject = None
 
@@ -108,7 +115,29 @@ class PropertyGraphSink(object):
             })
         else:
             self.vertex_buffer['id'] = subj
-            self.vertex_buffer[pred] = obj.toPython()
+            if isinstance(obj, Literal):
+                if obj.language:
+                    vertex_prop = {
+                        'value': obj.toPython(),
+                        'language': obj.language
+                    }
+                    try:
+                        self.vertex_buffer[pred].append(vertex_prop)
+                    except AttributeError:
+                        self.vertex_buffer[pred] = [
+                            self.make_vertex_prop(self.vertex_buffer[pred]),
+                            vertex_prop
+                        ]
+                elif self.vertex_buffer[pred]:
+                    self.vertex_buffer[pred].append(
+                        self.make_vertex_prop(self.vertex_buffer[pred])
+                    )
+                else:
+                    self.vertex_buffer[pred] = obj.toPython()
+            elif str(pred) in MULTIVALUED_URI_PROPS:
+                self.vertex_buffer[pred].append(obj.toPython())
+            else:
+                self.vertex_buffer[pred] = obj.toPython()
 
     def flush_buffers(self):
         self.flush_vertex()
@@ -120,7 +149,7 @@ class PropertyGraphSink(object):
                 json.dump(self.vertex_buffer, out_file, default=str)
                 out_file.write('\n')
 
-        self.vertex_buffer = {}
+        self.vertex_buffer = defaultdict(list)
 
     def flush_edges(self):
         with open(f'{self.part_name}_edges.jsonl', 'a', encoding='utf8') as out_file:
@@ -129,6 +158,13 @@ class PropertyGraphSink(object):
                 out_file.write('\n')
 
         self.edge_buffer = []
+
+    @staticmethod
+    def make_vertex_prop(value, language=None):
+        return {
+            'value': value,
+            'language': language
+        }
 
 
 def main(parallel=True):
