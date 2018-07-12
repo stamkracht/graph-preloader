@@ -16,11 +16,12 @@ TARGET_SIZE = 3 * 1024
 TASK_TIMEOUT = 10 * 60
 GLOBAL_ID_MARKER = 'id.dbpedia.org/global/'
 
-MULTIVALUED_URI_PROPS = [
+OWL_SAME_AS = 'http://www.w3.org/2002/07/owl#sameAs'
+MULTIVALUED_URI_PROPS = {
+    OWL_SAME_AS,
     'http://www.w3.org/1999/02/22-rdf-syntax-ns#type',
-    'http://www.w3.org/2002/07/owl#sameAs',
     'http://dbpedia.org/ontology/wikiPageExternalLink',
-]
+}
 
 
 def transform_part(part_name, begin, end):
@@ -108,15 +109,22 @@ class PropertyGraphSink(object):
             self.last_subject = subj
 
         if GLOBAL_ID_MARKER in obj:
-            self.edge_buffer.append({
-                'outv': subj,
-                'label': pred,
-                'inv': obj
-            })
+            if subj == obj and str(pred) == OWL_SAME_AS:
+                # ignore "dbg:A owl:sameAs dbg:A"
+                pass
+            else:
+                # create an edge
+                self.edge_buffer.append({
+                    'outv': subj,
+                    'label': pred,
+                    'inv': obj
+                })
         else:
+            # we'll add something to the vertex buffer
             self.vertex_buffer['id'] = subj
             if isinstance(obj, Literal):
                 if obj.language:
+                    # literals with language tag become vertex props
                     vertex_prop = {
                         'value': obj.toPython(),
                         'language': obj.language
@@ -129,14 +137,19 @@ class PropertyGraphSink(object):
                             vertex_prop
                         ]
                 elif self.vertex_buffer[pred]:
+                    # plain literal becomes vertex prop
                     self.vertex_buffer[pred].append(
                         self.make_vertex_prop(self.vertex_buffer[pred])
                     )
                 else:
+                    # plain or typed literal
                     self.vertex_buffer[pred] = obj.toPython()
+
             elif str(pred) in MULTIVALUED_URI_PROPS:
+                # append simple multivalued prop
                 self.vertex_buffer[pred].append(obj.toPython())
             else:
+                # convert external URI to prop
                 self.vertex_buffer[pred] = obj.toPython()
 
     def flush_buffers(self):
