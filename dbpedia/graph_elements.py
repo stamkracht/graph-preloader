@@ -195,7 +195,10 @@ class PropertyGraphSink(object):
                     )
                 else:
                     # plain or typed literal
-                    self.vertex_buffer[pred] = obj.toPython()
+                    if obj.datatype and 'dbpedia.org/datatype' in obj.datatype:
+                        self.vertex_buffer[pred] = obj.n3()
+                    else:
+                        self.vertex_buffer[pred] = obj.toPython()
 
             elif str(pred) in MULTIVALUED_URI_PROPS:
                 # append simple multivalued prop
@@ -261,4 +264,4 @@ if __name__ == "__main__":
     if not os.path.exists(OUT_BASE):
         os.makedirs(OUT_BASE)
 
-    main(parallel=True)
+    main(parallel=False)
