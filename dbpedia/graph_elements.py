@@ -15,6 +15,8 @@ PARTS_FILE = 'parts.tsv'
 TARGET_SIZE = 3 * 1024
 TASK_TIMEOUT = 10 * 60
 GLOBAL_ID_MARKER = 'id.dbpedia.org/global/'
+JUMP_SIZE = 15000 #350e6
+BACKPEDAL_SIZE = JUMP_SIZE // 10
 
 OWL_SAME_AS = 'http://www.w3.org/2002/07/owl#sameAs'
 MULTIVALUED_URI_PROPS = {
@@ -39,13 +41,14 @@ def transform_part(part_name, begin, end):
 def compute_parts(target_size=TARGET_SIZE):
 
     with open(IN_PATH, 'rb') as in_file:
-        part_number = 0
         file_end = in_file.seek(0, 2)
-        in_file.seek(0)
-        chunk_end = in_file.tell()
+
+        # jump and backpedal to find the first global URI
+        chunk_end = seek_first_global_subject(in_file, file_end)
 
         with open(os.path.join(OUT_BASE, PARTS_FILE), 'w') as parts_file:
-            tsvwriter = csv.writer(parts_file, delimiter='\t')
+            tsv_writer = csv.writer(parts_file, delimiter='\t')
+            part_number = 0
 
             while chunk_end < file_end:
                 part_number += 1
@@ -69,12 +72,61 @@ def compute_parts(target_size=TARGET_SIZE):
                         break
 
                 part_name = os.path.join(OUT_BASE, f'part-{part_number:03}')
-                tsvwriter.writerow([part_name, chunk_start, chunk_end])
+                tsv_writer.writerow([part_name, chunk_start, chunk_end])
                 yield part_name, chunk_start, chunk_end
 
 
 def read_subject_from_line(file_obj):
     return file_obj.readline().split(b'> <')[0]
+
+
+def seek_first_global_subject(file_obj, file_end):
+    cursor = 0
+    subj_str = b''
+    id_marker = GLOBAL_ID_MARKER.encode('utf8')
+
+    print('Looking for the first line with a global URI as subject...')
+
+    # JUMP
+    while id_marker not in subj_str and cursor < file_end:
+        cursor, subj_str = seek_subject_at(file_obj, cursor, +JUMP_SIZE)
+        print('jump', cursor, subj_str)
+
+    # BACKPEDAL
+    while id_marker in subj_str and cursor > 0:
+        cursor, subj_str = seek_subject_at(file_obj, cursor, -BACKPEDAL_SIZE)
+        print('backpedal', cursor, subj_str)
+
+    if 0 < cursor < file_end:
+        # STEP
+        while id_marker not in subj_str and cursor < file_end:
+            cursor = file_obj.tell()
+            subj_str = read_subject_from_line(file_obj)
+            print('step', cursor, subj_str)
+
+        if id_marker not in subj_str:
+            print('WARN: did not find first global URI', file=sys.stderr)
+            cursor = 0
+    else:
+        print('WARN: did not find first global URI', file=sys.stderr)
+        cursor = 0
+
+    file_obj.seek(cursor)
+    return file_obj.tell()
+
+
+def seek_subject_at(file_obj, cursor, delta):
+    file_obj.seek(cursor + delta)
+    file_obj.readline()
+    new_cursor = file_obj.tell()
+    if new_cursor == cursor:
+        raise ValueError(
+            f'The cursor is not moving at byte {cursor}.\n'
+            'Increase JUMP_SIZE or BACKPEDAL_SIZE for this input file.'
+        )
+
+    subj_str = read_subject_from_line(file_obj)
+    return new_cursor, subj_str
 
 
 class PropertyGraphSink(object):
