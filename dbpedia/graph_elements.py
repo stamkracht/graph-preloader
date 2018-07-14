@@ -177,10 +177,10 @@ class PropertyGraphSink(object):
             if isinstance(obj, Literal):
                 if obj.language:
                     # literals with language tag become vertex props
-                    vertex_prop = {
-                        'value': obj.toPython(),
-                        'language': obj.language
-                    }
+                    vertex_prop = self.make_vertex_prop(
+                        obj.toPython(),
+                        obj.language
+                    )
                     try:
                         self.vertex_buffer[pred].append(vertex_prop)
                     except AttributeError:
