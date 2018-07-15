@@ -15,7 +15,12 @@ PARTS_FILE = 'parts.tsv'
 TARGET_SIZE = 3 * 1024
 TASK_TIMEOUT = 10 * 60
 GLOBAL_ID_MARKER = 'id.dbpedia.org/global/'
-JUMP_SIZE = 15000 #350e6
+ID_MARKER_PREFIX = b'<http://'
+
+# SEEK GLOBAL SETTINGS
+BIN_SEARCH_LIMIT = 120
+# TODO: choose reasonable default (350e6)
+JUMP_SIZE = 15000
 BACKPEDAL_SIZE = JUMP_SIZE // 10
 
 OWL_SAME_AS = 'http://www.w3.org/2002/07/owl#sameAs'
@@ -26,25 +31,28 @@ MULTIVALUED_URI_PROPS = {
 }
 
 
-def transform_part(part_name, begin, end):
+def transform_part(part_name, left, right):
+    print(f'starting {part_name}: {left} -- {right}')
     with open(IN_PATH, 'rb') as in_file:
-        in_file.seek(begin)
-        part_bytes = in_file.read(end - begin)
+        in_file.seek(left)
+        part_bytes = in_file.read(right - left)
         part_str = part_bytes.decode('utf8')  # wasteful
         with PropertyGraphSink(part_name) as sink:
             ntp = NTriplesParser(sink=sink)
             ntp.parsestring(part_str)
 
+    triple_count = sum(sink.predicate_count.values())
+    print(f'finished {part_name}: {triple_count} triples')
     return part_name, dict(sink.predicate_count)
 
 
-def compute_parts(target_size=TARGET_SIZE):
+def compute_parts(target_size=TARGET_SIZE, with_binary=True):
 
     with open(IN_PATH, 'rb') as in_file:
-        file_end = in_file.seek(0, 2)
+        file_end = in_file.seek(0, os.SEEK_END)
 
-        # jump and backpedal to find the first global URI
-        chunk_end = seek_first_global_subject(in_file, file_end)
+        # hop to the line with the first global URI subject
+        chunk_end = seek_first_global_subject(in_file, file_end, with_binary=with_binary)
 
         with open(os.path.join(OUT_BASE, PARTS_FILE), 'w') as parts_file:
             tsv_writer = csv.writer(parts_file, delimiter='\t')
@@ -80,12 +88,47 @@ def read_subject_from_line(file_obj):
     return file_obj.readline().split(b'> <')[0]
 
 
-def seek_first_global_subject(file_obj, file_end):
-    cursor = 0
-    subj_str = b''
+def seek_first_global_subject(file_obj, file_end, with_binary=True):
     id_marker = GLOBAL_ID_MARKER.encode('utf8')
 
     print('Looking for the first line with a global URI as subject...')
+    if with_binary:
+        cursor = binary_search(file_obj, id_marker, file_end)
+    else:
+        cursor = jump_backpedal_and_step(file_obj, id_marker, file_end)
+
+    return file_obj.seek(cursor)
+
+
+def binary_search(file_obj, id_marker, file_end):
+    left = cursor = 0
+    right = file_end
+    id_subj_str = ID_MARKER_PREFIX + id_marker
+
+    for attempt in range(BIN_SEARCH_LIMIT):
+        try:
+            cursor, subj_str = seek_subject_at(
+                file_obj,
+                left,
+                +(right - left) // 2
+            )
+        except StopIteration:
+            cursor = step_to_marked_line(file_obj, left, id_marker, right)
+            break
+
+        if subj_str < id_subj_str:
+            left = cursor
+            print('forw', left, right, subj_str)
+        else:
+            right = cursor
+            print('back', left, right, subj_str)
+
+    return cursor
+
+
+def jump_backpedal_and_step(file_obj, id_marker, file_end):
+    subj_str = b''
+    cursor = 0
 
     # JUMP
     while id_marker not in subj_str and cursor < file_end:
@@ -99,25 +142,20 @@ def seek_first_global_subject(file_obj, file_end):
 
     if 0 < cursor < file_end:
         # STEP
-        while id_marker not in subj_str and cursor < file_end:
-            cursor = file_obj.tell()
-            subj_str = read_subject_from_line(file_obj)
-            print('step', cursor, subj_str)
-
-        if id_marker not in subj_str:
-            print('WARN: did not find first global URI', file=sys.stderr)
-            cursor = 0
+        cursor = step_to_marked_line(file_obj, cursor, id_marker, file_end)
     else:
         print('WARN: did not find first global URI', file=sys.stderr)
         cursor = 0
 
-    file_obj.seek(cursor)
-    return file_obj.tell()
+    return cursor
 
 
 def seek_subject_at(file_obj, cursor, delta):
     file_obj.seek(cursor + delta)
-    file_obj.readline()
+    discard = file_obj.readline()
+    if len(discard) >= abs(delta):
+        raise StopIteration('Target lies between `cursor` and `new_cursor`')
+
     new_cursor = file_obj.tell()
     if new_cursor == cursor:
         raise ValueError(
@@ -127,6 +165,21 @@ def seek_subject_at(file_obj, cursor, delta):
 
     subj_str = read_subject_from_line(file_obj)
     return new_cursor, subj_str
+
+
+def step_to_marked_line(file_obj, cursor, id_marker, upper_limit):
+    subj_str = b''
+    file_obj.seek(cursor)
+    while id_marker not in subj_str and cursor < upper_limit:
+        cursor = file_obj.tell()
+        subj_str = read_subject_from_line(file_obj)
+        print('step', cursor, subj_str)
+
+    if id_marker not in subj_str:
+        print('WARN: did not find first global URI', file=sys.stderr)
+        cursor = 0
+
+    return file_obj.seek(cursor)
 
 
 class PropertyGraphSink(object):
@@ -240,9 +293,9 @@ def main(parallel=True):
         pool = multiprocessing.Pool()
         tasks = []
 
-        for part_path, begin, end in compute_parts():
+        for part_path, left, right in compute_parts():
             tasks.append(pool.apply_async(
-                transform_part, (part_path, begin, end))
+                transform_part, (part_path, left, right))
             )
 
         results = [
@@ -252,8 +305,8 @@ def main(parallel=True):
         pool.close()
     else:
         results = [
-            transform_part(part_path, begin, end)
-            for part_path, begin, end in compute_parts()
+            transform_part(part_path, left, right)
+            for part_path, left, right in compute_parts()
         ]
 
     for res in results:
