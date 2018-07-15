@@ -23,13 +23,16 @@ def cast_int(str_or_number):
 
 parser.add_argument(
     'input_path',
+    nargs='?',
     type=os.path.abspath,
+    default=os.environ.get('INPUT_PATH', os.path.abspath('sorted.nt')),
     help='the Databus NTriples input file path'
 )
 parser.add_argument(
     'output_dir',
     nargs='?',
-    default=os.environ.get('OUTPUT_DIR', os.path.abspath('out')),
+    type=os.path.abspath,
+    default=os.environ.get('OUTPUT_DIR', os.path.abspath('output')),
     help='the JSON output directory path'
 )
 parser.add_argument(
@@ -98,8 +101,8 @@ parser.add_argument(
 )
 
 args = parser.parse_args()
-args.backpedal_size = getattr(args, 'backpedal_size', args.jump_size // 10)
 args.parts_file = getattr(args, 'parts_file', os.path.join(args.output_dir, 'parts.tsv'))
+args.backpedal_size = getattr(args, 'backpedal_size', args.jump_size // 10)
 
 
 OWL_SAME_AS = 'http://www.w3.org/2002/07/owl#sameAs'
@@ -368,6 +371,8 @@ class PropertyGraphSink(object):
 
 
 def make_graph_elements(parallel=args.parallel):
+    print(f'Reading from {args.input_path} ...')
+
     if parallel:
         pool = multiprocessing.Pool()
         tasks = []
