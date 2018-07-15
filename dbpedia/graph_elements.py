@@ -1,3 +1,4 @@
+import argparse
 import csv
 import glob
 import json
@@ -9,19 +10,97 @@ from collections import Counter, defaultdict
 from rdflib import Literal
 from rdflib.plugins.parsers.ntriples import NTriplesParser
 
-IN_PATH = 'split-test.nt'
-OUT_BASE = './out'
-PARTS_FILE = 'parts.tsv'
-TARGET_SIZE = 3 * 1024
-TASK_TIMEOUT = 10 * 60
-GLOBAL_ID_MARKER = 'id.dbpedia.org/global/'
-ID_MARKER_PREFIX = b'<http://'
 
-# SEEK GLOBAL SETTINGS
-BIN_SEARCH_LIMIT = 120
+parser = argparse.ArgumentParser(
+    description='Transform sorted Databus NTriples into property graph-friendly JSON.',
+    formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+)
+
+
+def cast_int(str_or_number):
+    return int(float(str_or_number))
+
+
+parser.add_argument(
+    'input_path',
+    type=os.path.abspath,
+    help='the Databus NTriples input file path'
+)
+parser.add_argument(
+    'output_dir',
+    nargs='?',
+    default=os.environ.get('OUTPUT_DIR', os.path.abspath('out')),
+    help='the JSON output directory path'
+)
+parser.add_argument(
+    '--parallel',
+    action='store_true',
+    help='transform parts in parallel using a multiprocessing pool'
+)
+# TODO: choose reasonable default (500e6)
+parser.add_argument(
+    '--target_size',
+    type=cast_int,
+    default=os.environ.get('TARGET_SIZE', '30e3'),  # bytes
+    help='the approximate size of parts in bytes'
+)
+parser.add_argument(
+    '--global_id_marker',
+    default=os.environ.get('GLOBAL_ID_MARKER', 'id.dbpedia.org/global/'),
+    help='only triples with this marker in the subject will be transformed'
+)
+parser.add_argument(
+    '--id_marker_prefix',
+    type=lambda x: bytes(x, 'ascii'),
+    default=os.environ.get('ID_MARKER_PREFIX', '<http://'),
+    help='the characters that precede the `global_id_marker` in each triple'
+)
+parser.add_argument(
+    '--parts_file',
+    default=os.environ.get('PARTS_FILE', argparse.SUPPRESS),
+    help='the file in which output files are listed with '
+         'corresponding input file positions (left and right) '
+         '(default: <output_dir>/parts.tsv)'
+)
+parser.add_argument(
+    '--task_timeout',
+    type=int,
+    default=os.environ.get('TASK_TIMEOUT', 10 * 60),  # seconds
+    help='the number of seconds a "transform part" task is allowed to run '
+         '(applies only to parallel execution)'
+)
+BINARY_SEARCH_TYPE, JUMP_SEARCH_TYPE = 'binary', 'jump'
+SEARCH_TYPE_CHOICES = [BINARY_SEARCH_TYPE, JUMP_SEARCH_TYPE]
+parser.add_argument(
+    '--search_type',
+    choices=SEARCH_TYPE_CHOICES,
+    default=os.environ.get('SEARCH_TYPE', BINARY_SEARCH_TYPE),
+    help='the type of search to use to skip to the first `global_id_marker` triple'
+)
+parser.add_argument(
+    '--bin_search_limit',
+    type=int,
+    default=os.environ.get('BIN_SEARCH_LIMIT', 120),
+    help='the maximum number of iterations of the binary search main loop'
+)
 # TODO: choose reasonable default (350e6)
-JUMP_SIZE = 15000
-BACKPEDAL_SIZE = JUMP_SIZE // 10
+parser.add_argument(
+    '--jump_size',
+    type=cast_int,
+    default=os.environ.get('JUMP_SIZE', '15e3'),
+    help='the size of forward jumps in bytes'
+)
+parser.add_argument(
+    '--backpedal_size',
+    type=cast_int,
+    default=os.environ.get('BACKPEDAL_SIZE', argparse.SUPPRESS),
+    help='the size of backpedals in bytes (default: <jump_size> // 10'
+)
+
+args = parser.parse_args()
+args.backpedal_size = getattr(args, 'backpedal_size', args.jump_size // 10)
+args.parts_file = getattr(args, 'parts_file', os.path.join(args.output_dir, 'parts.tsv'))
+
 
 OWL_SAME_AS = 'http://www.w3.org/2002/07/owl#sameAs'
 MULTIVALUED_URI_PROPS = {
@@ -33,7 +112,7 @@ MULTIVALUED_URI_PROPS = {
 
 def transform_part(part_name, left, right):
     print(f'starting {part_name}: {left} -- {right}')
-    with open(IN_PATH, 'rb') as in_file:
+    with open(args.input_path, 'rb') as in_file:
         in_file.seek(left)
         part_bytes = in_file.read(right - left)
         part_str = part_bytes.decode('utf8')  # wasteful
@@ -46,15 +125,15 @@ def transform_part(part_name, left, right):
     return part_name, dict(sink.predicate_count)
 
 
-def compute_parts(target_size=TARGET_SIZE, with_binary=True):
+def compute_parts(target_size=args.target_size):
 
-    with open(IN_PATH, 'rb') as in_file:
+    with open(args.input_path, 'rb') as in_file:
         file_end = in_file.seek(0, os.SEEK_END)
 
         # hop to the line with the first global URI subject
-        chunk_end = seek_first_global_subject(in_file, file_end, with_binary=with_binary)
+        chunk_end = seek_first_global_subject(in_file, file_end)
 
-        with open(os.path.join(OUT_BASE, PARTS_FILE), 'w') as parts_file:
+        with open(args.parts_file, 'w') as parts_file:
             tsv_writer = csv.writer(parts_file, delimiter='\t')
             part_number = 0
 
@@ -79,7 +158,7 @@ def compute_parts(target_size=TARGET_SIZE, with_binary=True):
                         chunk_end = bookmark
                         break
 
-                part_name = os.path.join(OUT_BASE, f'part-{part_number:03}')
+                part_name = os.path.join(args.output_dir, f'part-{part_number:03}')
                 tsv_writer.writerow([part_name, chunk_start, chunk_end])
                 yield part_name, chunk_start, chunk_end
 
@@ -88,11 +167,11 @@ def read_subject_from_line(file_obj):
     return file_obj.readline().split(b'> <')[0]
 
 
-def seek_first_global_subject(file_obj, file_end, with_binary=True):
-    id_marker = GLOBAL_ID_MARKER.encode('utf8')
+def seek_first_global_subject(file_obj, file_end, search_type=args.search_type):
+    id_marker = args.global_id_marker.encode('utf8')
 
     print('Looking for the first line with a global URI as subject...')
-    if with_binary:
+    if search_type == BINARY_SEARCH_TYPE:
         cursor = binary_search(file_obj, id_marker, file_end)
     else:
         cursor = jump_backpedal_and_step(file_obj, id_marker, file_end)
@@ -103,9 +182,9 @@ def seek_first_global_subject(file_obj, file_end, with_binary=True):
 def binary_search(file_obj, id_marker, file_end):
     left = cursor = 0
     right = file_end
-    id_subj_str = ID_MARKER_PREFIX + id_marker
+    id_subj_str = args.id_marker_prefix + id_marker
 
-    for attempt in range(BIN_SEARCH_LIMIT):
+    for attempt in range(args.bin_search_limit):
         try:
             cursor, subj_str = seek_subject_at(
                 file_obj,
@@ -132,12 +211,12 @@ def jump_backpedal_and_step(file_obj, id_marker, file_end):
 
     # JUMP
     while id_marker not in subj_str and cursor < file_end:
-        cursor, subj_str = seek_subject_at(file_obj, cursor, +JUMP_SIZE)
+        cursor, subj_str = seek_subject_at(file_obj, cursor, +args.jump_size)
         print('jump', cursor, subj_str)
 
     # BACKPEDAL
     while id_marker in subj_str and cursor > 0:
-        cursor, subj_str = seek_subject_at(file_obj, cursor, -BACKPEDAL_SIZE)
+        cursor, subj_str = seek_subject_at(file_obj, cursor, -args.backpedal_size)
         print('backpedal', cursor, subj_str)
 
     if 0 < cursor < file_end:
@@ -160,7 +239,7 @@ def seek_subject_at(file_obj, cursor, delta):
     if new_cursor == cursor:
         raise ValueError(
             f'The cursor is not moving at byte {cursor}.\n'
-            'Increase JUMP_SIZE or BACKPEDAL_SIZE for this input file.'
+            'Increase `jump_size` for this input file.'
         )
 
     subj_str = read_subject_from_line(file_obj)
@@ -205,15 +284,15 @@ class PropertyGraphSink(object):
             self.flush_buffers()
 
     def triple(self, subj, pred, obj):
-        if GLOBAL_ID_MARKER not in subj:
+        if args.global_id_marker not in subj:
             return
 
-        self.predicate_count[pred] += 1
+        self.predicate_count[pred.n3()] += 1
         if subj != self.last_subject:
             self.flush_buffers()
             self.last_subject = subj
 
-        if GLOBAL_ID_MARKER in obj:
+        if args.global_id_marker in obj:
             if subj == obj and str(pred) == OWL_SAME_AS:
                 # ignore "dbg:A owl:sameAs dbg:A"
                 pass
@@ -288,7 +367,7 @@ class PropertyGraphSink(object):
         }
 
 
-def main(parallel=True):
+def make_graph_elements(parallel=args.parallel):
     if parallel:
         pool = multiprocessing.Pool()
         tasks = []
@@ -299,7 +378,7 @@ def main(parallel=True):
             )
 
         results = [
-            task.get(timeout=TASK_TIMEOUT)
+            task.get(timeout=args.task_timeout)
             for task in tasks
         ]
         pool.close()
@@ -314,7 +393,7 @@ def main(parallel=True):
 
 
 if __name__ == "__main__":
-    if not os.path.exists(OUT_BASE):
-        os.makedirs(OUT_BASE)
+    if not os.path.exists(args.output_dir):
+        os.makedirs(args.output_dir)
 
-    main(parallel=False)
+    make_graph_elements()
