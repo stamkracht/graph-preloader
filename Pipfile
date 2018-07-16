@@ -11,6 +11,9 @@ rdflib = {git = "https://github.com/RDFLib/rdflib.git"}
 
 [dev-packages]
 "flake8" = "*"
+ipython = "*"
+coverage = "*"
+pytest = "*"
 
 [requires]
 python_version = "3.6"
