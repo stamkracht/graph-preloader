@@ -24,9 +24,9 @@ def get_test_args(**kwargs):
 # TODO: clean output before each test
 
 
-def test_skip_to_global_2nd_half_binary():
+def test_skip_to_global_right_binary():
     args = get_test_args(
-        input_path=base_path('samples/skip-2nd-half-test.nt'),
+        input_path=base_path('samples/skip-to-right-test.nt'),
         target_size=500,
         search_type='binary',
     )
@@ -37,9 +37,9 @@ def test_skip_to_global_2nd_half_binary():
     assert (7243, 7743) == part_positions[1][1:]
 
 
-def test_skip_to_global_2nd_half_jump():
+def test_skip_to_global_right_jump():
     args = get_test_args(
-        input_path=base_path('samples/skip-2nd-half-test.nt'),
+        input_path=base_path('samples/skip-to-right-test.nt'),
         target_size=500,
         search_type='jump',
         jump_size=1500,
@@ -51,9 +51,9 @@ def test_skip_to_global_2nd_half_jump():
     assert (7243, 7743) == part_positions[1][1:]
 
 
-def test_skip_to_global_between_binary():
+def test_skip_to_global_middle_binary():
     args = get_test_args(
-        input_path=base_path('samples/skip-between-test.nt'),
+        input_path=base_path('samples/skip-to-middle-test.nt'),
         target_size=500,
         search_type='binary',
     )
@@ -65,9 +65,9 @@ def test_skip_to_global_between_binary():
     assert (6949, 7676) == part_positions[2][1:]
 
 
-def test_skip_to_global_between_jump():
+def test_skip_to_global_middle_jump():
     args = get_test_args(
-        input_path=base_path('samples/skip-between-test.nt'),
+        input_path=base_path('samples/skip-to-middle-test.nt'),
         target_size=500,
         search_type='jump',
         jump_size=2500,
@@ -80,9 +80,9 @@ def test_skip_to_global_between_jump():
     assert (6949, 7676) == part_positions[2][1:]
 
 
-def test_skip_to_global_long_tail_binary():
+def test_skip_to_global_left_binary():
     args = get_test_args(
-        input_path=base_path('samples/skip-long-tail-test.nt'),
+        input_path=base_path('samples/skip-to-left-test.nt'),
         target_size=500,
         search_type='binary',
     )
@@ -93,9 +93,9 @@ def test_skip_to_global_long_tail_binary():
     assert (1703, 3587) == part_positions[1][1:]
 
 
-def test_skip_to_global_long_tail_jump():
+def test_skip_to_global_left_jump():
     args = get_test_args(
-        input_path=base_path('samples/skip-long-tail-test.nt'),
+        input_path=base_path('samples/skip-to-left-test.nt'),
         target_size=500,
         search_type='jump',
         jump_size=500,
