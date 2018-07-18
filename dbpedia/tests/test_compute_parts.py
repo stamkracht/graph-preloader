@@ -1,5 +1,6 @@
 from dbpedia.compute_parts import compute_parts
-from dbpedia.preloader import parse_arguments, base_path
+from dbpedia.preloader import parse_arguments
+from dbpedia.utils import base_path
 
 
 def get_test_args(**kwargs):

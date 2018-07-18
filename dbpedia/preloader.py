@@ -4,7 +4,7 @@ import sys
 
 from dbpedia.compute_parts import SEARCH_TYPE_CHOICES, BINARY_SEARCH_TYPE
 from dbpedia.graph_elements import make_graph_elements
-
+from dbpedia.utils import base_path
 
 arg_parser = argparse.ArgumentParser(
     description='Transform sorted Databus NTriples into property graph-friendly JSON.',
@@ -22,13 +22,6 @@ def parse_arguments(arg_list, parser=arg_parser, **kwargs):
                               os.path.join(args.output_dir, 'parts.tsv'))
     args.backpedal_size = getattr(args, 'backpedal_size', args.jump_size // 10)
     return args
-
-
-def base_path(name_or_path):
-    base_dir = os.path.dirname(
-        os.path.realpath(__file__)
-    )
-    return os.path.join(base_dir, name_or_path)
 
 
 def cast_int(str_or_number):

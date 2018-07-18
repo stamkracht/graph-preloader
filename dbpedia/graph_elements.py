@@ -33,6 +33,45 @@ def transform_part(input_path, global_id_marker, part_name, left, right):
     return part_name, dict(sink.predicate_count)
 
 
+def make_graph_elements(args):
+    print(f'Reading from {args.input_path} ...')
+
+    if args.parallel:
+        pool = multiprocessing.Pool()
+        tasks = []
+
+        for part_path, left, right in compute_parts(args):
+            tasks.append(pool.apply_async(
+                transform_part, (
+                    args.input_path,
+                    args.global_id_marker,
+                    part_path,
+                    left,
+                    right
+                )
+            ))
+
+        results = [
+            task.get(timeout=args.task_timeout)
+            for task in tasks
+        ]
+        pool.close()
+    else:
+        results = [
+            transform_part(
+                args.input_path,
+                args.global_id_marker,
+                part_path,
+                left,
+                right
+            )
+            for part_path, left, right in compute_parts(args)
+        ]
+
+    for res in results:
+        print(res)
+
+
 class PropertyGraphSink(object):
     def __init__(self, global_id_marker, part_name):
         self.global_id_marker = global_id_marker
@@ -138,42 +177,3 @@ class PropertyGraphSink(object):
             'value': value,
             'language': language
         }
-
-
-def make_graph_elements(args):
-    print(f'Reading from {args.input_path} ...')
-
-    if args.parallel:
-        pool = multiprocessing.Pool()
-        tasks = []
-
-        for part_path, left, right in compute_parts(args):
-            tasks.append(pool.apply_async(
-                transform_part, (
-                    args.input_path,
-                    args.global_id_marker,
-                    part_path,
-                    left,
-                    right
-                )
-            ))
-
-        results = [
-            task.get(timeout=args.task_timeout)
-            for task in tasks
-        ]
-        pool.close()
-    else:
-        results = [
-            transform_part(
-                args.input_path,
-                args.global_id_marker,
-                part_path,
-                left,
-                right
-            )
-            for part_path, left, right in compute_parts(args)
-        ]
-
-    for res in results:
-        print(res)
