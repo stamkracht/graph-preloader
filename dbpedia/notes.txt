@@ -1,0 +1,14 @@
+# download
+cd ~/data/dbpedia-dumps/
+wget -r -nH -np --reject="index.html*" http://downloads.dbpedia.org/databus/fusion/
+
+# decompress
+[example extraction of fused data]
+lbzip2 -cdk part-00* > fused.nt
+
+# on second thought: why concat? awk can run in parallel on parts
+
+# schema inference
+cat fused/fused.nt | mawk -f ../../schema-inference.awk | sort -u --parallel=6 -T "/data/tmp" > ./fused/data-schema.txt
+
+# NB use case-sensitive sort for ntriples (LC_COLLATE=C sort -u)

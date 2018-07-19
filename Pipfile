@@ -7,9 +7,15 @@ name = "pypi"
 requests = "*"
 docopt = "*"
 tqdm = "*"
+rdflib = {git = "https://github.com/RDFLib/rdflib.git"}
+"beautifulsoup4" = "*"
+lxml = "*"
 
 [dev-packages]
 "flake8" = "*"
+ipython = "*"
+coverage = "*"
+pytest = "*"
 
 [requires]
 python_version = "3.6"
