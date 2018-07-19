@@ -1,6 +1,7 @@
 import glob
 import json
 import multiprocessing
+import os
 import sys
 from collections import Counter, defaultdict, UserDict
 
@@ -84,8 +85,10 @@ def make_graph_elements(args):
             for part_path, left, right in compute_parts(args)
         ]
 
-    for res in results:
-        print(res)
+    pcounts_path = os.path.join(args.output_dir, 'predicate-counts.json')
+    with open(pcounts_path, 'w') as pcounts_file:
+        json.dump(dict(results), pcounts_file, indent=4)
+    print(f'\nDone! Predicate counts have been saved to {pcounts_path}')
 
 
 class PropertyGraphSink:
@@ -117,7 +120,7 @@ class PropertyGraphSink:
         if self.global_id_marker not in subj:
             return
 
-        qn_subj, qn_pred, qn_obj = subj, pred, obj
+        qn_subj, qn_pred, qn_obj = str(subj), str(pred), str(obj)
         if self.prefixer:
             qn_subj = self.prefixer.qname(subj)
             qn_pred = self.prefixer.qname(pred)
