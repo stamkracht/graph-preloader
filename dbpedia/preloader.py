@@ -112,7 +112,7 @@ arg_parser.add_argument(
     '--backpedal-size',
     type=cast_int,
     default=os.environ.get('BACKPEDAL_SIZE', argparse.SUPPRESS),
-    help='the size of backpedals in bytes (default: <jump_size> // 10'
+    help='the size of backpedals in bytes (default: <jump_size> // 10)'
 )
 
 
