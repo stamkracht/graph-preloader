@@ -1,0 +1,30 @@
+<http://commons.wikimedia.org/?==========================
+<http://commons.wikimedia.org///////////////////////////?
+<http://commons.wikimedia.org/wiki/Special:FilePath/!-2011-debowa-leka-kosciol-abri.jpg?width=300&dopeasshit> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://dbpedia.org/ontology/Image> .
+<http://id.dbpedia.org/global/1rUej> <http://dbpedia.org/ontology/abstract> "Michael bla Strugl (* 28. August 1963 in Steyr) ist ein österreichischer Politiker (ÖVP). Seit 2013 ist er oberösterreichischer Landesrat."@de .
+<http://id.dbpedia.org/global/1rUej> <http://dbpedia.org/ontology/birthDate> "1963-8-28"^^<http://www.w3.org/2001/XMLSchema#date> .
+<http://id.dbpedia.org/global/1rUej> <http://dbpedia.org/ontology/birthPlace> <http://id.dbpedia.org/global/12Scvj> .
+<http://id.dbpedia.org/global/1rUej> <http://dbpedia.org/ontology/citizenship> <http://id.dbpedia.org/global/3hiaF> .
+<http://id.dbpedia.org/global/1rUej> <http://dbpedia.org/ontology/occupation> <http://id.dbpedia.org/global/4zDhp> .
+<http://id.dbpedia.org/global/1rUej> <http://dbpedia.org/ontology/party> <http://id.dbpedia.org/global/1oCpP> .
+<http://id.dbpedia.org/global/1rUej> <http://dbpedia.org/ontology/thumbnail> <http://commons.wikimedia.org/wiki/Special:FilePath/Michael_Strugl_auf_der_Ortsbildmesse_2015,_Gmunden_2634.jpg?width=300> .
+<http://id.dbpedia.org/global/1rUej> <http://dbpedia.org/ontology/wikiPageExternalLink> <http://www.land-oberoesterreich.gv.at/cps/rde/xchg/SID-3DCFCFC3-D5A33D35/ooe/hs.xsl/15349_DEU_HTML.htm> .
+<http://id.dbpedia.org/global/1rUej> <http://purl.org/dc/elements/1.1/description> "österreichischer Politiker (ÖVP), Landtagsabgeordneter, Mitglied des Bundesrates" .
+<http://not.a.global.uri> <http://dbpedia.org/ontology/city> <http://id.dbpedia.org/global/4tt2Q> .
+<http://not.a.global.uri> <http://dbpedia.org/ontology/city> <http://id.dbpedia.org/global/4tt2Q> .
+<http://not.a.global.uri> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://dbpedia.org/ontology/Place> .
+<http://not.a.global.uri> <http://dbpedia.org/ontology/city> <http://id.dbpedia.org/global/4tt2Q> .
+<http://not.a.global.uri> <http://dbpedia.org/ontology/city> <http://id.dbpedia.org/global/4tt2Q> .
+<http://not.a.global.uri> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://dbpedia.org/ontology/Place> .
+<http://not.a.global.uri> <http://dbpedia.org/ontology/city> <http://id.dbpedia.org/global/4tt2Q> .
+<http://not.a.global.uri> <http://dbpedia.org/ontology/city> <http://id.dbpedia.org/global/4tt2Q> .
+<http://not.a.global.uri> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://dbpedia.org/ontology/Place> .
+<http://not.a.global.uri> <http://dbpedia.org/ontology/city> <http://id.dbpedia.org/global/4tt2Q> .
+<http://not.a.global.uri> <http://dbpedia.org/ontology/city> <http://id.dbpedia.org/global/4tt2Q> .
+<http://not.a.global.uri> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://dbpedia.org/ontology/Place> .
+<http://not.a.global.uri> <http://dbpedia.org/ontology/city> <http://id.dbpedia.org/global/4tt2Q> .
+<http://not.a.global.uri> <http://dbpedia.org/ontology/city> <http://id.dbpedia.org/global/4tt2Q> .
+<http://not.a.global.uri> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://dbpedia.org/ontology/Place> .
+<http://not.a.global.uri> <http://dbpedia.org/ontology/city> <http://id.dbpedia.org/global/4tt2Q> .
+<http://not.a.global.uri> <http://dbpedia.org/ontology/city> <http://id.dbpedia.org/global/4tt2Q> .
+<http://not.a.global.uri> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://dbpedia.org/ontology/Place> .
