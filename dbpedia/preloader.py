@@ -59,11 +59,10 @@ arg_parser.add_argument(
     action='store_true',
     help='shorten URIs by replacing known namespaces with their corresponding prefix'
 )
-# TODO: choose reasonable default (500e6)
 arg_parser.add_argument(
     '--target-size',
     type=cast_int,
-    default=os.environ.get('TARGET_SIZE', '30e3'),  # bytes
+    default=os.environ.get('TARGET_SIZE', '500e6'),  # bytes
     help='the approximate size of parts in bytes'
 )
 arg_parser.add_argument(
@@ -103,11 +102,10 @@ arg_parser.add_argument(
     default=os.environ.get('BIN_SEARCH_LIMIT', 120),
     help='the maximum number of iterations of the binary search main loop'
 )
-# TODO: choose reasonable default (350e6)
 arg_parser.add_argument(
     '--jump-size',
     type=cast_int,
-    default=os.environ.get('JUMP_SIZE', '15e3'),
+    default=os.environ.get('JUMP_SIZE', '350e6'),
     help='the size of forward jumps in bytes'
 )
 arg_parser.add_argument(
