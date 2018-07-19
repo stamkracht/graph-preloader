@@ -1,6 +1,7 @@
 import argparse
 import os
 import sys
+import time
 
 from dbpedia.compute_parts import SEARCH_TYPE_CHOICES, BINARY_SEARCH_TYPE
 from dbpedia.graph_elements import make_graph_elements
@@ -29,6 +30,11 @@ def cast_int(str_or_number):
     return int(float(str_or_number))
 
 
+def get_timed_output_path(prefix='output'):
+    this_second_hex = hex(int(time.time()))
+    return base_path(f'{prefix}_{this_second_hex[2:]}/')
+
+
 arg_parser.add_argument(
     'input_path',
     nargs='?',
@@ -40,7 +46,7 @@ arg_parser.add_argument(
     'output_dir',
     nargs='?',
     type=os.path.abspath,
-    default=os.environ.get('OUTPUT_DIR', base_path('output/')),
+    default=os.environ.get('OUTPUT_DIR', get_timed_output_path()),
     help='the JSON output directory path'
 )
 arg_parser.add_argument(

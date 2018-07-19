@@ -1,4 +1,4 @@
-dbpedia/output/
+dbpedia/output_*
 dbpedia/tests/output/
 
 # Byte-compiled / optimized / DLL files
