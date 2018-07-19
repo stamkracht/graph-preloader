@@ -2,13 +2,16 @@ import glob
 import json
 import multiprocessing
 import sys
-from collections import Counter, defaultdict
+from collections import Counter, defaultdict, UserDict
 
+import requests
+from bs4 import BeautifulSoup
 from rdflib import Literal
 from rdflib.plugins.parsers.ntriples import NTriplesParser
+from requests import RequestException
 
 from dbpedia.compute_parts import compute_parts
-
+from dbpedia.utils import base_path
 
 OWL_SAME_AS = 'http://www.w3.org/2002/07/owl#sameAs'
 MULTIVALUED_URI_PROPS = {
@@ -18,13 +21,20 @@ MULTIVALUED_URI_PROPS = {
 }
 
 
-def transform_part(input_path, global_id_marker, part_name, left, right):
+def transform_part(
+        input_path,
+        global_id_marker,
+        part_name,
+        left,
+        right,
+        prefixer=None,
+):
     print(f'starting {part_name}: {left} -- {right}')
     with open(input_path, 'rb') as in_file:
         in_file.seek(left)
         part_bytes = in_file.read(right - left)
         part_str = part_bytes.decode('utf8')  # wasteful
-        with PropertyGraphSink(global_id_marker, part_name) as sink:
+        with PropertyGraphSink(global_id_marker, part_name, prefixer) as sink:
             ntp = NTriplesParser(sink=sink)
             ntp.parsestring(part_str)
 
@@ -35,6 +45,10 @@ def transform_part(input_path, global_id_marker, part_name, left, right):
 
 def make_graph_elements(args):
     print(f'Reading from {args.input_path} ...')
+
+    prefixer = None
+    if args.shorten_uris:
+        prefixer = NamespacePrefixer()
 
     if args.parallel:
         pool = multiprocessing.Pool()
@@ -47,7 +61,8 @@ def make_graph_elements(args):
                     args.global_id_marker,
                     part_path,
                     left,
-                    right
+                    right,
+                    prefixer,
                 )
             ))
 
@@ -63,7 +78,8 @@ def make_graph_elements(args):
                 args.global_id_marker,
                 part_path,
                 left,
-                right
+                right,
+                prefixer,
             )
             for part_path, left, right in compute_parts(args)
         ]
@@ -72,10 +88,12 @@ def make_graph_elements(args):
         print(res)
 
 
-class PropertyGraphSink(object):
-    def __init__(self, global_id_marker, part_name):
+class PropertyGraphSink:
+
+    def __init__(self, global_id_marker, part_name, prefixer=None):
         self.global_id_marker = global_id_marker
         self.part_name = part_name
+        self.prefixer = prefixer
         self.predicate_count = Counter()
         self.vertex_buffer = defaultdict(list)
         self.edge_buffer = []
@@ -99,7 +117,13 @@ class PropertyGraphSink(object):
         if self.global_id_marker not in subj:
             return
 
-        self.predicate_count[pred.n3()] += 1
+        qn_subj, qn_pred, qn_obj = subj, pred, obj
+        if self.prefixer:
+            qn_subj = self.prefixer.qname(subj)
+            qn_pred = self.prefixer.qname(pred)
+            qn_obj = self.prefixer.qname(obj)
+
+        self.predicate_count[qn_pred] += 1
         if subj != self.last_subject:
             self.flush_buffers()
             self.last_subject = subj
@@ -111,13 +135,13 @@ class PropertyGraphSink(object):
             else:
                 # create an edge
                 self.edge_buffer.append({
-                    'outv': subj,
-                    'label': pred,
-                    'inv': obj
+                    'outv': qn_subj,
+                    'label': qn_pred,
+                    'inv': qn_obj
                 })
         else:
             # we'll add something to the vertex buffer
-            self.vertex_buffer['id'] = subj
+            self.vertex_buffer['id'] = qn_subj
             if isinstance(obj, Literal):
                 if obj.language:
                     # literals with language tag become vertex props
@@ -126,48 +150,49 @@ class PropertyGraphSink(object):
                         obj.language
                     )
                     try:
-                        self.vertex_buffer[pred].append(vertex_prop)
+                        self.vertex_buffer[qn_pred].append(vertex_prop)
                     except AttributeError:
-                        self.vertex_buffer[pred] = [
-                            self.make_vertex_prop(self.vertex_buffer[pred]),
+                        self.vertex_buffer[qn_pred] = [
+                            self.make_vertex_prop(self.vertex_buffer[qn_pred]),
                             vertex_prop
                         ]
-                elif self.vertex_buffer[pred]:
+                elif self.vertex_buffer[qn_pred]:
                     # plain literal becomes vertex prop
-                    self.vertex_buffer[pred].append(
-                        self.make_vertex_prop(self.vertex_buffer[pred])
+                    self.vertex_buffer[qn_pred].append(
+                        self.make_vertex_prop(self.vertex_buffer[qn_pred])
                     )
                 else:
                     # plain or typed literal
                     if obj.datatype and 'dbpedia.org/datatype' in obj.datatype:
-                        self.vertex_buffer[pred] = obj.n3()
+                        self.vertex_buffer[qn_pred] = obj.n3()
                     else:
-                        self.vertex_buffer[pred] = obj.toPython()
+                        self.vertex_buffer[qn_pred] = obj.toPython()
 
             elif str(pred) in MULTIVALUED_URI_PROPS:
                 # append simple multivalued prop
-                self.vertex_buffer[pred].append(obj.toPython())
+                self.vertex_buffer[qn_pred].append(qn_obj)
             else:
                 # convert external URI to prop
-                self.vertex_buffer[pred] = obj.toPython()
+                self.vertex_buffer[qn_pred] = str(obj)
 
     def flush_buffers(self):
         self.flush_vertex()
         self.flush_edges()
 
     def flush_vertex(self):
-        with open(f'{self.part_name}_vertices.jsonl', 'a', encoding='utf8') as out_file:
-            if self.vertex_buffer:
+        if self.vertex_buffer:
+            with open(f'{self.part_name}_vertices.jsonl', 'a', encoding='utf8') as out_file:
                 json.dump(self.vertex_buffer, out_file, default=str)
                 out_file.write('\n')
 
         self.vertex_buffer = defaultdict(list)
 
     def flush_edges(self):
-        with open(f'{self.part_name}_edges.jsonl', 'a', encoding='utf8') as out_file:
-            for edge in self.edge_buffer:
-                json.dump(edge, out_file, default=str)
-                out_file.write('\n')
+        if self.edge_buffer:
+            with open(f'{self.part_name}_edges.jsonl', 'a', encoding='utf8') as out_file:
+                for edge in self.edge_buffer:
+                    json.dump(edge, out_file, default=str)
+                    out_file.write('\n')
 
         self.edge_buffer = []
 
@@ -177,3 +202,74 @@ class PropertyGraphSink(object):
             'value': value,
             'language': language
         }
+
+
+class NamespacePrefixer(UserDict):
+
+    def __init__(self, mapping=None, **kwargs):
+        super().__init__(mapping, **kwargs)
+        self.default_namespaces_url = 'http://dbpedia.org/sparql?nsdecl'
+        self.default_namespaces_file = base_path('default-namespaces.json')
+        if not self.data:
+            self.load_default_namespaces()
+
+        # overrides
+        self['http://id.dbpedia.org/global/'] = 'dbg'
+        self['http://www.wikidata.org/entity/'] = 'wde'
+
+    def qname(self, uri):
+        try:
+            namespace, local_name = self.split_uri(uri)
+        except ValueError:
+            return uri
+
+        if namespace in self:
+            return f'{self[namespace]}:{local_name}'
+        else:
+            return uri
+
+    def split_uri(self, uri):
+        if '#' in uri:
+            split_uri = uri.split('#', maxsplit=1)
+            return f'{split_uri[0]}#', split_uri[1]
+
+        elif '/' in uri:
+            split_uri = uri.split('/')
+            local_parts = []
+            while split_uri:
+                *split_uri, local_part = split_uri
+                local_parts.append(local_part)
+                namespace = '/'.join(split_uri) + '/'
+                if namespace in self:
+                    local_name = '/'.join(reversed(local_parts))
+                    return namespace, local_name
+
+        raise ValueError(f"Can't split '{uri}'")
+
+    def load_default_namespaces(self):
+        try:
+            ns_mapping = self.fetch_default_namespaces()
+        except (AttributeError, ConnectionError, RequestException):
+            print(f"Couldn't update namespaces from {self.default_namespaces_url}")
+            with open(self.default_namespaces_file) as ns_file:
+                ns_mapping = json.load(ns_file)
+
+        self.update(ns_mapping)
+
+    def fetch_default_namespaces(self):
+        print(f'Downloading namespaces from {self.default_namespaces_url} ...')
+        nsdecl_resp = requests.get(self.default_namespaces_url)
+        nsdecl_soup = BeautifulSoup(nsdecl_resp.text, 'lxml')
+        ns_table = nsdecl_soup.find('table', class_='tableresult')
+
+        ns_to_prefix = {}
+        for tr in ns_table.find_all('tr'):
+            prefix_td = tr.find('td')
+            namespace_a = tr.find('a')
+            if prefix_td and namespace_a:
+                ns_to_prefix[namespace_a['href']] = prefix_td.text
+
+        with open(self.default_namespaces_file, 'w') as ns_file:
+            json.dump(ns_to_prefix, ns_file, indent=4)
+
+        return ns_to_prefix

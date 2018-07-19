@@ -8,6 +8,8 @@ requests = "*"
 docopt = "*"
 tqdm = "*"
 rdflib = {git = "https://github.com/RDFLib/rdflib.git"}
+"beautifulsoup4" = "*"
+lxml = "*"
 
 [dev-packages]
 "flake8" = "*"

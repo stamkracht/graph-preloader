@@ -18,8 +18,9 @@ def parse_arguments(arg_list, parser=arg_parser, **kwargs):
         setattr(args, arg_name, value)
 
     # apply computed defaults
-    args.parts_file = getattr(args, 'parts_file',
-                              os.path.join(args.output_dir, 'parts.tsv'))
+    args.parts_file = getattr(
+        args, 'parts_file', os.path.join(args.output_dir, 'parts.tsv')
+    )
     args.backpedal_size = getattr(args, 'backpedal_size', args.jump_size // 10)
     return args
 
@@ -47,59 +48,64 @@ arg_parser.add_argument(
     action='store_true',
     help='transform parts in parallel using a multiprocessing pool'
 )
+arg_parser.add_argument(
+    '--shorten-uris',
+    action='store_true',
+    help='shorten URIs by replacing known namespaces with their corresponding prefix'
+)
 # TODO: choose reasonable default (500e6)
 arg_parser.add_argument(
-    '--target_size',
+    '--target-size',
     type=cast_int,
     default=os.environ.get('TARGET_SIZE', '30e3'),  # bytes
     help='the approximate size of parts in bytes'
 )
 arg_parser.add_argument(
-    '--global_id_marker',
+    '--global-id-marker',
     default=os.environ.get('GLOBAL_ID_MARKER', 'id.dbpedia.org/global/'),
     help='only triples with this marker in the subject will be transformed'
 )
 arg_parser.add_argument(
-    '--id_marker_prefix',
+    '--id-marker-prefix',
     type=lambda x: bytes(x, 'ascii'),
     default=os.environ.get('ID_MARKER_PREFIX', '<http://'),
     help='the characters that precede the `global_id_marker` in each triple'
 )
 arg_parser.add_argument(
-    '--parts_file',
+    '--parts-file',
     default=os.environ.get('PARTS_FILE', argparse.SUPPRESS),
     help='the file in which output files are listed with '
          'corresponding input file positions (left and right) '
          '(default: <output_dir>/parts.tsv)'
 )
 arg_parser.add_argument(
-    '--task_timeout',
+    '--task-timeout',
     type=int,
     default=os.environ.get('TASK_TIMEOUT', 10 * 60),  # seconds
     help='the number of seconds a "transform part" task is allowed to run '
          '(applies only to parallel execution)'
 )
 arg_parser.add_argument(
-    '--search_type',
+    '--search-type',
     choices=SEARCH_TYPE_CHOICES,
     default=os.environ.get('SEARCH_TYPE', BINARY_SEARCH_TYPE),
     help='the type of search to use to skip to the first `global_id_marker` triple'
 )
 arg_parser.add_argument(
-    '--bin_search_limit',
+    '--bin-search-limit',
     type=int,
     default=os.environ.get('BIN_SEARCH_LIMIT', 120),
     help='the maximum number of iterations of the binary search main loop'
 )
 # TODO: choose reasonable default (350e6)
 arg_parser.add_argument(
-    '--jump_size',
+    '--jump-size',
     type=cast_int,
     default=os.environ.get('JUMP_SIZE', '15e3'),
     help='the size of forward jumps in bytes'
 )
 arg_parser.add_argument(
-    '--backpedal_size',
+    '--backpedal-size',
     type=cast_int,
     default=os.environ.get('BACKPEDAL_SIZE', argparse.SUPPRESS),
     help='the size of backpedals in bytes (default: <jump_size> // 10'
@@ -111,4 +117,9 @@ if __name__ == "__main__":
     if not os.path.exists(args.output_dir):
         os.makedirs(args.output_dir)
 
-    make_graph_elements(args)
+    try:
+        make_graph_elements(args)
+    except FileNotFoundError as err:
+        print(err, file=sys.stderr)
+        arg_parser.print_help(sys.stderr)
+        exit(1)
