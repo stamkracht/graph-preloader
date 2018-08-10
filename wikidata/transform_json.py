@@ -9,6 +9,8 @@ outputs json vertices and edges usable as input to DSE graph loader.
 import itertools
 import json
 import sys
+import argparse
+import multiprocessing
 
 import properties
 
@@ -63,26 +65,42 @@ def transform(entity):
     return transformed, edges
 
 
-def main():
+def process_line(line):
+    try:
+        entity = json.loads(line)
+        transformed, edges = transform(entity)
+        return transformed, edges, None
+    except Exception as e:
+        return None, None, e
+
+
+def get_map_func(is_parallel):
+    if is_parallel:
+        p = multiprocessing.Pool()
+        return lambda i: p.imap_unordered(process_line, i, chunksize=20)
+    else:
+        return lambda i: map(process_line, i)
+
+
+def main(args):
     vertex_file = open('data/dse_entities.dump', 'w')
     edge_file = open('data/dse_edges.dump', 'w')
 
-    for line in sys.stdin:
-        entity = json.loads(line)
-        print('transforming entity {}'.format(entity['id']))
-
-        try:
-            transformed, edges = transform(entity)
-        except Exception:
-            import pprint
+    map_func = get_map_func(args.parallel)
+    for transformed, edges, error in map_func(iter(sys.stdin)):
+        if error is not None:
             import traceback
-            traceback.print_exc()
-            pprint.pprint(entity)
+            traceback.print_exc(error)
             sys.exit(1)
+
+        print("transformed entity {}".format(transformed["id"]))
         print(json.dumps(transformed), file=vertex_file)
         for edge in edges:
             print(json.dumps(edge), file=edge_file)
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--parallel", action="store_true",
+                        help="transform elements in parallel")
+    main(parser.parse_args())
