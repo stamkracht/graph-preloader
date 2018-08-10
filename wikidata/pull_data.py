@@ -18,7 +18,7 @@ import requests
 import json
 import urllib.parse
 
-ENTITIES_FILE = 'dump/fetched_entities'
+ENTITIES_FILE = 'data/fetched_entities'
 fetched_entities = set()
 
 
@@ -148,6 +148,6 @@ if __name__ == "__main__":
         sys.stderr.write('Received interrupt, exiting...\n')
         sys.exit(-1)
     finally:
-        with open(ENTITIES_FILE) as f:
+        with open(ENTITIES_FILE, 'w') as f:
             for entity in fetched_entities:
                 f.write(entity + '\n')
