@@ -38,7 +38,8 @@ class Fetcher(object):
     base_url = 'https://www.wikidata.org/w/api.php'
     api_query = '?format=json&action=wbgetentities&ids={}'
 
-    def __init__(self):
+    def __init__(self, fetch_size=50):
+        self.fetch_size = fetch_size
         self.request_queue = []
         self.result_queue = []
 
@@ -46,9 +47,10 @@ class Fetcher(object):
         if not self.request_queue:
             raise FetcherError('nothing left to fetch')
 
-        print('fetching {} ids'.format(len(self.request_queue)), file=sys.stderr)
-        ids = self.request_queue[:50].join('|')
-        req = urllib.parse.quote_plus(self.api_query.format(ids))
+        to_fetch = self.request_queue[:self.fetch_size]
+        print(f'fetching {len(to_fetch)} ids', file=sys.stderr)
+        ids = '|'.join(to_fetch)
+        req = self.api_query.format(ids)
         resp = requests.get(self.base_url + req)
 
         if not resp.ok:
@@ -60,12 +62,10 @@ class Fetcher(object):
         not_missing = filter(lambda r: 'missing' not in r, results)
         self.result_queue.extend(not_missing)
         # remove what we fetched from request queue
-        del self.request_queue[:50]
+        del self.request_queue[:self.fetch_size]
 
     def schedule(self, entity_id):
         self.request_queue.append(entity_id)
-        while len(self.request_queue) >= 50:
-            self.make_request()
 
     def get_next(self):
         if not self.result_queue:
@@ -73,41 +73,53 @@ class Fetcher(object):
         return self.result_queue.pop()
 
 
-def fetch_entity(entity_id):
-    url = 'http://www.wikidata.org/entity/{}'.format(entity_id)
-    resp = requests.get(url, headers={'Accept': 'application/json'})
-    if resp.ok:
-        _, entity = resp.json()['entities'].popitem()
+class RecursiveFetcher(object):
+    """RecursiveFetcher -- recursively crawl entities up to a given depth
+
+    Uses the Fetcher for efficient entity retrieval
+    """
+    def __init__(self, initial_set, max_depth):
+        self.max_depth = max_depth
+        # this map keeps track of the depth where we encountered this entity
+        self.depth_map = {}
+        self.fetcher = Fetcher()
+        self.schedule(initial_set, depth=0)
+
+    def schedule(self, entity_ids, depth):
+        for eid in entity_ids:
+            self.depth_map[eid] = depth
+            self.fetcher.schedule(eid)
+
+    def crawl(self, entity):
+        if not entity['claims']:
+            return
+
+        for key, claims in entity['claims'].items():
+            yield key
+            for claim in claims:
+                if 'mainsnak' not in claim:
+                    continue
+                snak = claim['mainsnak']
+                dtype, stype = snak['datatype'], snak['snaktype']
+                if dtype == 'wikibase-item' and stype == 'value':
+                    yield snak['datavalue']['value']['id']
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        try:
+            entity = self.fetcher.get_next()
+        except FetcherError:
+            raise StopIteration
+
+        depth = self.depth_map[entity['id']]
+        if depth < self.max_depth:
+            # subtract everything we've already fetched
+            new_entities = set(self.crawl(entity)) - self.depth_map.keys()
+            print(f'scheduling {len(new_entities)} in {entity["id"]}, depth={depth + 1}', file=sys.stderr)
+            self.schedule(new_entities, depth + 1)
         return entity
-    else:
-        raise EntityError('error fetching entity {}: {}\n'.format(
-            entity_id, resp.status_code))
-
-
-def crawl_entity(entity):
-    if not entity['claims']:
-        return
-
-    for key, claims in entity['claims'].items():
-        yield key
-        for claim in claims:
-            if 'mainsnak' not in claim:
-                continue
-            snak = claim['mainsnak']
-            if snak['datatype'] == 'wikibase-item' and snak['snaktype'] == 'value':
-                yield claim['mainsnak']['datavalue']['value']['id']
-
-
-def recursive_fetch(entity_id, max_depth, depth=0):
-    sys.stderr.write('crawling entity {}\n'.format(entity_id))
-    entity = fetch_entity(entity_id)
-    yield entity
-    fetched_entities.add(entity_id)
-    if depth < max_depth:
-        for sub_id in crawl_entity(entity):
-            if sub_id in fetched_entities:
-                continue
-            yield from recursive_fetch(sub_id, max_depth, depth + 1)
 
 
 def main(args):
@@ -118,21 +130,12 @@ def main(args):
         start, end = int(args['<start>']), int(args['<end>'])
     depth = int(args['--depth'])
     success_count = 0
-    errors = []
 
-    for i in range(start, end):
-        try:
-            for entity in recursive_fetch('Q' + str(i), depth):
-                print(json.dumps(entity))
-                success_count += 1
-        except EntityError as e:
-            errors.append(str(e))
-
+    initial_set = ["Q" + str(i) for i in range(start, end)]
+    for entity in RecursiveFetcher(initial_set, depth):
+        print(json.dumps(entity))
+        success_count += 1
     sys.stderr.write('successfully fetched {} entities\n'.format(success_count))
-    if errors:
-        sys.stderr.write('The following errors were encountered:\n')
-    for error in errors:
-        sys.stderr.write(error)
 
 
 if __name__ == "__main__":
