@@ -18,12 +18,12 @@ def get_value(datavalue):
     t, v = datavalue['type'], datavalue['value']
     if t == 'string':
         return v
-    elif t == 'amount':
+    elif t in ('amount', 'quantity'):
         return float(v['amount'])
     elif t == 'time':
         return v['time']
     elif t == 'globecoordinate':
-        return None
+        return {'latitude': v['latitude'], 'longitude': v['longitude']}
 
 
 def init_database():
