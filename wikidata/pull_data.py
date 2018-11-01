@@ -10,13 +10,13 @@ Usage:
 
 Options:
     -h --help                    Show this message
+    -p, --properties             crawl properties instead of entities
     -d <depth>, --depth=<depth>  recursively crawl entities to depth. [default: 0]
 """
 
 import sys
 import requests
 import json
-import urllib.parse
 
 ENTITIES_FILE = 'data/fetched_entities'
 fetched_entities = set()
@@ -130,8 +130,9 @@ def main(args):
         start, end = int(args['<start>']), int(args['<end>'])
     depth = int(args['--depth'])
     success_count = 0
+    prefix = 'P' if args['--properties'] else 'Q'
 
-    initial_set = ["Q" + str(i) for i in range(start, end)]
+    initial_set = [prefix + str(i) for i in range(start, end)]
     for entity in RecursiveFetcher(initial_set, depth):
         print(json.dumps(entity))
         success_count += 1
