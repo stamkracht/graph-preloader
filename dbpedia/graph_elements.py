@@ -160,10 +160,15 @@ class PropertyGraphSink:
                             vertex_prop
                         ]
                 elif self.vertex_buffer[qn_pred]:
-                    # plain literal becomes vertex prop
-                    self.vertex_buffer[qn_pred].append(
-                        self.make_vertex_prop(self.vertex_buffer[qn_pred])
-                    )
+                    # there is an existing value for this predicate
+                    try:
+                        # plain literal becomes vertex prop
+                        self.vertex_buffer[qn_pred].append(
+                            self.make_vertex_prop(self.vertex_buffer[qn_pred])
+                        )
+                    except AttributeError:
+                        print(f'WARN: discarding triple (multiple values, same predicate) -- '
+                              f'{subj} {pred} {obj}', file=sys.stderr)
                 else:
                     # plain or typed literal
                     if obj.datatype and 'dbpedia.org/datatype' in obj.datatype:
