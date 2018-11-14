@@ -45,6 +45,12 @@ def transform_edge(item_id, snak):
     }
 
 
+def add_qualifiers(edge, qualifiers):
+    for q in qualifiers.values():
+        prop = q['property']
+        edge[prop] = properties.get_value(q['datavalue'])
+
+
 def multilang_property(langs):
     if not langs:
         return None
@@ -69,11 +75,18 @@ def transform(entity):
             continue
 
         if snak['datatype'] == 'wikibase-item':
-            edges.append(transform_edge(transformed["id"], snak))
+            edge = transform_edge(transformed["id"], snak)
+            add_qualifiers(edge, claim.get('qualifiers'))
+            edges.append(edge)
         else:
             property_id = snak['property']
             value = properties.get_value(snak['datavalue'])
-            transformed[property_id] = value
+            if claim.get('qualifiers'):
+                prop = {'value': value}
+                add_qualifiers(prop, claim['qualifiers'])
+            else:
+                prop = value
+            transformed[property_id] = prop
 
     return transformed, edges
 
