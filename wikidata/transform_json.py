@@ -45,13 +45,11 @@ def transform_edge(item_id, snak):
     }
 
 
-def english_or_default(langs):
+def multilang_property(langs):
     if not langs:
         return None
-    if 'en' in langs:
-        return langs['en']['value']
     else:
-        return langs.popitem()[1]['value']
+        return list(langs.values())
 
 
 def transform(entity):
@@ -62,8 +60,8 @@ def transform(entity):
     }
 
     transformed['id'] = transform_id(entity['id'])
-    transformed['label'] = english_or_default(entity['labels'])
-    transformed['description'] = english_or_default(entity['descriptions'])
+    transformed['label'] = multilang_property(entity['labels'])
+    transformed['description'] = multilang_property(entity['descriptions'])
 
     for claim in iter_claims(entity):
         snak = claim.get('mainsnak')
