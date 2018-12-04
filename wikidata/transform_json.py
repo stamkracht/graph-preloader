@@ -45,10 +45,13 @@ def transform_edge(item_id, snak):
     }
 
 
-def add_qualifiers(edge, qualifiers):
+def add_qualifiers(item, qualifiers):
+    if not qualifiers:
+        return
+
     for q in qualifiers.values():
-        prop = q['property']
-        edge[prop] = properties.get_value(q['datavalue'])
+        prop = q[0]['property']
+        item[prop] = properties.get_value(q[0]['datavalue'])
 
 
 def multilang_property(langs):
