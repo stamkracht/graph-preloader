@@ -24,6 +24,10 @@ def get_value(datavalue):
         return v['time']
     elif t == 'globecoordinate':
         return {'latitude': v['latitude'], 'longitude': v['longitude']}
+    if t == 'wikibase-entityid':
+        return v['id']
+    else:
+        print(f'unknown datatype: {t}')
 
 
 def init_database():
