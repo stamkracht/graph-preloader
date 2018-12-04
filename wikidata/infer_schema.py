@@ -54,11 +54,11 @@ def get_edge_properties(prop):
         return v == ALLOWED_QUALIFIERS_ENTITY
 
     constraints = prop['claims'][CONSTRAINTS_PROP]
-    allowed_qualifiers = filter(is_allowed_quals, constraints)
+    allowed_qualifiers = list(filter(is_allowed_quals, constraints))
 
     assert len(allowed_qualifiers) == 1
-    allowed_qualifiers = allowed_qualifiers[0][PROPERTY_PROP]
-    return [snak['datavalue']['id'] for snak in allowed_qualifiers]
+    allowed_qualifiers = allowed_qualifiers[0]['qualifiers'][PROPERTY_PROP]
+    return [snak['datavalue']['value']['id'] for snak in allowed_qualifiers]
 
 
 def get_property_schema(prop):
@@ -67,7 +67,7 @@ def get_property_schema(prop):
 
     if etype in ('Item', 'Property'):
         etype = etype.lower()
-        edge_properties = ', '.join(get_edge_properties(prop))
+        edge_properties = ', '.join(map(repr, get_edge_properties(prop)))
         schema = f"edgeLabel('{eid}').connection('item', '{etype}').properties({edge_properties}).create()"
     elif etype is None:
         print(f"Unknown type '{prop['datatype']}' for prop {prop['id']}", file=sys.stderr)
@@ -86,17 +86,7 @@ def main():
             print(f'entity has no datatype:\n{entity["id"]}', file=sys.stderr)
             continue
 
-        eid = entity['id']
-        etype = get_type(entity['datatype'])
-
-        if etype in ('Item', 'Property'):
-            etype = etype.lower()
-            schema = f"edgeLabel('{eid}').connection('item', '{etype}').create()"
-        elif etype is None:
-            print(f"Unknown type '{entity['datatype']}' for entity {entity['id']}", file=sys.stderr)
-        else:
-            schema = "schema.propertyKey('{eid}').{etype}().create()"
-
+        schema = get_property_schema(entity)
         print(schema)
 
 
