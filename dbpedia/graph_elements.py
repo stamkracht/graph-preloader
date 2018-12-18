@@ -222,7 +222,7 @@ class NamespacePrefixer(UserDict):
             self.load_default_namespaces()
 
         # overrides
-        self['http://id.dbpedia.org/global/'] = 'dbg'
+        self['https://global.dbpedia.org/id/'] = 'dbg'
         self['http://www.wikidata.org/entity/'] = 'wde'
 
     def qname(self, uri):

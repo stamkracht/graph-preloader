@@ -67,7 +67,7 @@ arg_parser.add_argument(
 )
 arg_parser.add_argument(
     '--global-id-marker',
-    default=os.environ.get('GLOBAL_ID_MARKER', 'id.dbpedia.org/global/'),
+    default=os.environ.get('GLOBAL_ID_MARKER', 'global.dbpedia.org/id/'),
     help='only triples with this marker in the subject will be transformed'
 )
 arg_parser.add_argument(

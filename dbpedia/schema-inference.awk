@@ -11,7 +11,7 @@ BEGIN {
     # typed literal
     range = substr(obj[2], 0, length(obj[2])-3);
   } else if (substr($3, length($3)-2, length($3)) == "> .") {
-    if (match($3, /id\.dbpedia\.org\/global/)) {
+    if (match($3, /global\.dbpedia\.org\/id/)) {
       # DBpedia global URI
       range = "global_uri";
     } else {
