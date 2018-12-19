@@ -159,22 +159,29 @@ class PropertyGraphSink:
                             self.make_vertex_prop(self.vertex_buffer[qn_pred]),
                             vertex_prop
                         ]
-                elif self.vertex_buffer[qn_pred]:
-                    # there is an existing value for this predicate
-                    try:
-                        # plain literal becomes vertex prop
-                        self.vertex_buffer[qn_pred].append(
-                            self.make_vertex_prop(self.vertex_buffer[qn_pred])
-                        )
-                    except AttributeError:
-                        print(f'WARN: discarding triple (multiple values, same predicate) -- '
-                              f'{subj} {pred} {obj}', file=sys.stderr)
                 else:
                     # plain or typed literal
                     if obj.datatype and 'dbpedia.org/datatype' in obj.datatype:
-                        self.vertex_buffer[qn_pred] = obj.n3()
+                        native_obj = obj.n3()
                     else:
-                        self.vertex_buffer[qn_pred] = obj.toPython()
+                        native_obj = obj.toPython()
+
+                    if self.vertex_buffer[qn_pred]:
+                        # there is an existing value for this predicate
+                        if hasattr(self.vertex_buffer[qn_pred], 'append'):
+                            if isinstance(self.vertex_buffer[qn_pred][0], dict):
+                                # plain literal becomes vertex prop
+                                native_obj = self.make_vertex_prop(native_obj)
+
+                            self.vertex_buffer[qn_pred].append(native_obj)
+                        else:
+                            # existing and new value are combined in a list
+                            self.vertex_buffer[qn_pred] = [
+                                self.vertex_buffer[qn_pred],
+                                native_obj
+                            ]
+                    else:
+                        self.vertex_buffer[qn_pred] = native_obj
 
             elif str(pred) in MULTIVALUED_URI_PROPS:
                 # append simple multivalued prop
