@@ -12,3 +12,31 @@ lbzip2 -cdk part-00* > fused.nt
 cat fused/fused.nt | mawk -f ../../schema-inference.awk | sort -u --parallel=6 -T "/data/tmp" > ./fused/data-schema.txt
 
 # NB use case-sensitive sort for ntriples (LC_COLLATE=C sort -u)
+
+
+# databus testrepo dataids are faulty, so cannot use sparql right now
+# https://fredrikaverpil.github.io/2017/06/20/async-and-await-with-subprocesses/
+# https://pypi.org/project/aiosparql/
+
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+prefix dcat:  <http://www.w3.org/ns/dcat#>
+prefix dataid-mt: <http://dataid.dbpedia.org/ns/mt#>
+prefix dataid: <http://dataid.dbpedia.org/ns/core#>
+prefix dct:   <http://purl.org/dc/terms/>
+prefix xsd:   <http://www.w3.org/2001/XMLSchema#>
+
+
+SELECT ?download, ?latest WHERE {
+  ?metadata <http://purl.org/dc/terms/publisher> <http://vehnem.github.io/webid.ttl#this> .
+  {
+    SELECT max(?version) as ?latest WHERE {
+		?metadata  dct:hasVersion ?version .
+    }
+  }
+  ?metadata  dct:hasVersion ?latest .
+  ?metadata dcat:mediaType  dataid-mt:ApplicationNTriples .
+  FILTER NOT EXISTS {?metadata  dataid:contentVariant   [] }
+  ?metadata dcat:downloadURL ?download .
+
+}
