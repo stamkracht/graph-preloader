@@ -23,7 +23,7 @@ class NTriplesParser(rdflib_nt.NTriplesParser):
         self.buffer = ''
         while True:
             line = self.readline()
-            if self.line is None:
+            if line is None:
                 break
             try:
                 self.parseline()
