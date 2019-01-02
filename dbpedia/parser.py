@@ -12,7 +12,7 @@ class NTriplesParser(rdflib_nt.NTriplesParser):
     """
 
     def __init__(self, sink=None):
-        super(self.__init__(sink=sink))
+        super().__init__(sink=sink)
         self.file = None
         self.buffer = None
         self.line = None
