@@ -34,5 +34,5 @@ class NTriplesParser(rdflib_nt.NTriplesParser):
             try:
                 self.parseline()
             except rdflib_nt.ParseError:
-                raise print(f'Invalid line: {self.line}', file=sys.stderr)
+                print(f'Invalid line: {self.line}', file=sys.stderr)
         return self.sink
