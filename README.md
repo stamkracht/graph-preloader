@@ -60,7 +60,7 @@ The DBpedia preloader tool can be used as follows:
                             the approximate size of parts in bytes (default: 500e6)
       --global-id-marker GLOBAL_ID_MARKER
                             only triples with this marker in the subject will be
-                            transformed (default: id.dbpedia.org/global/)
+                            transformed (default: global.dbpedia.org/id/)
       --id-marker-prefix ID_MARKER_PREFIX
                             the characters that precede the `global_id_marker` in
                             each triple (default: <http://)
