@@ -48,6 +48,7 @@ def make_graph_elements(args):
     print(f'Reading from {args.input_path} ...')
 
     prefixer = None
+    parts = compute_parts(args)
     if args.shorten_uris:
         prefixer = NamespacePrefixer()
 
@@ -55,7 +56,7 @@ def make_graph_elements(args):
         pool = multiprocessing.Pool()
         tasks = []
 
-        for part_path, left, right in compute_parts(args):
+        for part_path, left, right in parts:
             tasks.append(pool.apply_async(
                 transform_part, (
                     args.input_path,
@@ -82,7 +83,7 @@ def make_graph_elements(args):
                 right,
                 prefixer,
             )
-            for part_path, left, right in compute_parts(args)
+            for part_path, left, right in parts
         ]
 
     pcounts_path = os.path.join(args.output_dir, 'predicate-counts.json')
