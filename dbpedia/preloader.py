@@ -73,7 +73,7 @@ arg_parser.add_argument(
 arg_parser.add_argument(
     '--id-marker-prefix',
     type=lambda x: bytes(x, 'ascii'),
-    default=os.environ.get('ID_MARKER_PREFIX', '<http://'),
+    default=os.environ.get('ID_MARKER_PREFIX', '<https://'),
     help='the characters that precede the `global_id_marker` in each triple'
 )
 arg_parser.add_argument(
