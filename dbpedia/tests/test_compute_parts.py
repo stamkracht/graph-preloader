@@ -24,8 +24,8 @@ def test_skip_to_global_right_binary():
     part_positions = list(compute_parts(args))
 
     assert 2 == len(part_positions)
-    assert (4615, 7243) == part_positions[0][1:]
-    assert (7243, 7743) == part_positions[1][1:]
+    assert (4615, 7266) == part_positions[0][1:]
+    assert (7266, 7766) == part_positions[1][1:]
 
 
 def test_skip_to_global_right_jump():
@@ -38,8 +38,8 @@ def test_skip_to_global_right_jump():
     part_positions = list(compute_parts(args))
 
     assert 2 == len(part_positions)
-    assert (4615, 7243) == part_positions[0][1:]
-    assert (7243, 7743) == part_positions[1][1:]
+    assert (4615, 7266) == part_positions[0][1:]
+    assert (7266, 7766) == part_positions[1][1:]
 
 
 def test_skip_to_global_middle_binary():
@@ -51,9 +51,9 @@ def test_skip_to_global_middle_binary():
     part_positions = list(compute_parts(args))
 
     assert 3 == len(part_positions)
-    assert (1834, 6236) == part_positions[0][1:]
-    assert (6236, 6949) == part_positions[1][1:]
-    assert (6949, 7676) == part_positions[2][1:]
+    assert (1834, 6273) == part_positions[0][1:]
+    assert (6273, 6993) == part_positions[1][1:]
+    assert (6993, 7727) == part_positions[2][1:]
 
 
 def test_skip_to_global_middle_jump():
@@ -66,9 +66,9 @@ def test_skip_to_global_middle_jump():
     part_positions = list(compute_parts(args))
 
     assert 3 == len(part_positions)
-    assert (1834, 6236) == part_positions[0][1:]
-    assert (6236, 6949) == part_positions[1][1:]
-    assert (6949, 7676) == part_positions[2][1:]
+    assert (1834, 6273) == part_positions[0][1:]
+    assert (6273, 6993) == part_positions[1][1:]
+    assert (6993, 7727) == part_positions[2][1:]
 
 
 def test_skip_to_global_left_binary():
@@ -80,8 +80,8 @@ def test_skip_to_global_left_binary():
     part_positions = list(compute_parts(args))
 
     assert 2 == len(part_positions)
-    assert (314, 1703) == part_positions[0][1:]
-    assert (1703, 3587) == part_positions[1][1:]
+    assert (314, 1716) == part_positions[0][1:]
+    assert (1716, 3630) == part_positions[1][1:]
 
 
 def test_skip_to_global_left_jump():
@@ -95,7 +95,7 @@ def test_skip_to_global_left_jump():
     part_positions = list(compute_parts(args))
 
     assert 2 == len(part_positions)
-    assert (314, 1703) == part_positions[0][1:]
-    assert (1703, 3587) == part_positions[1][1:]
+    assert (314, 1716) == part_positions[0][1:]
+    assert (1716, 3630) == part_positions[1][1:]
 
 
