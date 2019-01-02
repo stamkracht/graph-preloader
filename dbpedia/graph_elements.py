@@ -8,10 +8,10 @@ from collections import Counter, defaultdict, UserDict
 import requests
 from bs4 import BeautifulSoup
 from rdflib import Literal
-from rdflib.plugins.parsers.ntriples import NTriplesParser
 from requests import RequestException
 
 from dbpedia.compute_parts import compute_parts
+from dbpedia.parser import NTriplesParser
 from dbpedia.utils import base_path
 
 OWL_SAME_AS = 'http://www.w3.org/2002/07/owl#sameAs'
