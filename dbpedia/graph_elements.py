@@ -132,64 +132,63 @@ class PropertyGraphSink:
             self.flush_buffers()
             self.last_subject = subj
 
-        if self.global_id_marker in obj:
-            if subj == obj and str(pred) == OWL_SAME_AS:
-                # ignore "dbg:A owl:sameAs dbg:A"
-                pass
-            else:
-                # create an edge
-                self.edge_buffer.append({
-                    'outv': qn_subj,
-                    'label': qn_pred,
-                    'inv': qn_obj
-                })
-        else:
-            # we'll add something to the vertex buffer
-            self.vertex_buffer['id'] = qn_subj
-            if isinstance(obj, Literal):
-                if obj.language:
-                    # literals with language tag become vertex props
-                    vertex_prop = self.make_vertex_prop(
-                        obj.toPython(),
-                        obj.language
-                    )
-                    try:
-                        self.vertex_buffer[qn_pred].append(vertex_prop)
-                    except AttributeError:
-                        self.vertex_buffer[qn_pred] = [
-                            self.make_vertex_prop(self.vertex_buffer[qn_pred]),
-                            vertex_prop
-                        ]
-                else:
-                    # plain or typed literal
-                    if obj.datatype and 'dbpedia.org/datatype' in obj.datatype:
-                        native_obj = obj.n3()
-                    else:
-                        native_obj = obj.toPython()
+        self.vertex_buffer['id'] = qn_subj
 
-                    if self.vertex_buffer[qn_pred]:
-                        # there is an existing value for this predicate
-                        if hasattr(self.vertex_buffer[qn_pred], 'append'):
-                            if isinstance(self.vertex_buffer[qn_pred][0], dict):
-                                # plain literal becomes vertex prop
-                                native_obj = self.make_vertex_prop(native_obj)
-
-                            self.vertex_buffer[qn_pred].append(native_obj)
-                        else:
-                            # existing and new value are combined in a list
-                            self.vertex_buffer[qn_pred] = [
-                                self.vertex_buffer[qn_pred],
-                                native_obj
-                            ]
-                    else:
-                        self.vertex_buffer[qn_pred] = native_obj
-
-            elif str(pred) in MULTIVALUED_URI_PROPS:
+        if str(pred) in MULTIVALUED_URI_PROPS:
+            # ignore "dbg:A owl:sameAs dbg:A"
+            if not subj == obj and str(pred) == OWL_SAME_AS:
                 # append simple multivalued prop
                 self.vertex_buffer[qn_pred].append(qn_obj)
+
+        elif self.global_id_marker in obj:
+            # create an edge
+            self.edge_buffer.append({
+                'outv': qn_subj,
+                'label': qn_pred,
+                'inv': qn_obj
+            })
+        # we'll add something to the vertex buffer
+        elif isinstance(obj, Literal):
+            if obj.language:
+                # literals with language tag become vertex props
+                vertex_prop = self.make_vertex_prop(
+                    obj.toPython(),
+                    obj.language
+                )
+                try:
+                    self.vertex_buffer[qn_pred].append(vertex_prop)
+                except AttributeError:
+                    self.vertex_buffer[qn_pred] = [
+                        self.make_vertex_prop(self.vertex_buffer[qn_pred]),
+                        vertex_prop
+                    ]
             else:
-                # convert external URI to prop
-                self.vertex_buffer[qn_pred] = str(obj)
+                # plain or typed literal
+                if obj.datatype and 'dbpedia.org/datatype' in obj.datatype:
+                    native_obj = obj.n3()
+                else:
+                    native_obj = obj.toPython()
+
+                if self.vertex_buffer[qn_pred]:
+                    # there is an existing value for this predicate
+                    if hasattr(self.vertex_buffer[qn_pred], 'append'):
+                        if isinstance(self.vertex_buffer[qn_pred][0], dict):
+                            # plain literal becomes vertex prop
+                            native_obj = self.make_vertex_prop(native_obj)
+
+                        self.vertex_buffer[qn_pred].append(native_obj)
+                    else:
+                        # existing and new value are combined in a list
+                        self.vertex_buffer[qn_pred] = [
+                            self.vertex_buffer[qn_pred],
+                            native_obj
+                        ]
+                else:
+                    self.vertex_buffer[qn_pred] = native_obj
+
+        else:
+            # convert external URI to prop
+            self.vertex_buffer[qn_pred] = str(obj)
 
     def flush_buffers(self):
         self.flush_vertex()
