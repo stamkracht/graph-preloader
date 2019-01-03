@@ -24,8 +24,8 @@ def test_split_uri():
     case_semicolon_1 = prefixer.split_iri('http://dbpedia.org/resource/Category:Life')
     assert case_semicolon_1 == ('http://dbpedia.org/resource/Category:', 'Life')
 
-    case_semicolon_2 = prefixer.split_iri('http://dbpedia.org/resource/4:20')
-    assert case_semicolon_2 == ('http://dbpedia.org/resource/', '4:20')
+    case_semicolon_2 = prefixer.split_iri('http://dbpedia.org/resource/10:20:31/50')
+    assert case_semicolon_2 == ('http://dbpedia.org/resource/', '10:20:31/50')
 
 
 def test_qname():
@@ -49,5 +49,5 @@ def test_qname():
     case_semicolon_1 = prefixer.qname('http://dbpedia.org/resource/Category:Life')
     assert case_semicolon_1 == 'dbc:Life'
 
-    case_semicolon_2 = prefixer.qname('http://dbpedia.org/resource/4:20')
-    assert case_semicolon_2 == 'dbr:4:20'
+    case_semicolon_2 = prefixer.qname('http://dbpedia.org/resource/10:20:31/50')
+    assert case_semicolon_2 == 'dbr:10:20:31/50'
