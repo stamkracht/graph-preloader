@@ -2,6 +2,7 @@ import glob
 import json
 import multiprocessing
 import os
+import re
 import sys
 from collections import Counter, defaultdict, UserDict
 
@@ -228,38 +229,41 @@ class NamespacePrefixer(UserDict):
         if not self.data:
             self.load_default_namespaces()
 
+        self.separators = '/#:'
+        self.separator_re = re.compile(f'([{self.separators}])')
+
         # overrides
         self['https://global.dbpedia.org/id/'] = 'dbg'
         self['http://www.wikidata.org/entity/'] = 'wde'
 
-    def qname(self, uri):
+    def qname(self, iri):
         try:
-            namespace, local_name = self.split_uri(uri)
+            namespace, local_name = self.split_iri(iri)
         except ValueError:
-            return uri
+            return iri
 
         if namespace in self:
             return f'{self[namespace]}:{local_name}'
         else:
-            return uri
+            return iri
 
-    def split_uri(self, uri):
-        if '#' in uri:
-            split_uri = uri.split('#', maxsplit=1)
-            return f'{split_uri[0]}#', split_uri[1]
+    def split_iri(self, iri):
+        iri_split = self.separator_re.split(iri)
 
-        elif '/' in uri:
-            split_uri = uri.split('/')
-            local_parts = []
-            while split_uri:
-                *split_uri, local_part = split_uri
-                local_parts.append(local_part)
-                namespace = '/'.join(split_uri) + '/'
-                if namespace in self:
-                    local_name = '/'.join(reversed(local_parts))
-                    return namespace, local_name
+        local_parts = []
+        while iri_split:
+            *iri_split, local_part = iri_split
+            local_parts.append(local_part)
+            namespace = ''.join(iri_split)
 
-        raise ValueError(f"Can't split '{uri}'")
+            if namespace in self:
+                local_name = ''.join(reversed(local_parts))
+                if local_name[0] in self.separators:
+                    local_name = local_name[1:]
+
+                return namespace, local_name
+
+        raise ValueError(f"Can't split '{iri}'")
 
     def load_default_namespaces(self):
         try:

@@ -2,6 +2,7 @@
     "http://www.w3.org/2005/Atom": "a",
     "http://schemas.talis.com/2005/address/schema#": "address",
     "http://webns.net/mvcb/": "admin",
+    "http://www.w3.org/ns/activitystreams#": "as",
     "http://atomowl.org/ontologies/atomrdf#": "atom",
     "http://soap.amazon.com/": "aws",
     "http://b3s.openlinksw.com/": "b3s",
