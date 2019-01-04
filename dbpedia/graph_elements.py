@@ -281,7 +281,7 @@ class NamespacePrefixer(UserDict):
 
             if namespace in self:
                 local_name = ''.join(reversed(local_parts))
-                if local_name[0] in self.separators:
+                if local_name and local_name[0] in self.separators:
                     local_name = local_name[1:]
 
                 return namespace, local_name
