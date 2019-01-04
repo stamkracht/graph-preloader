@@ -33,12 +33,9 @@ def transform_part(
 ):
     print(f'starting {part_name}: {left} -- {right}')
     with open(input_path, 'rb') as in_file:
-        in_file.seek(left)
-        part_bytes = in_file.read(right - left)
-        part_str = part_bytes.decode('utf8')  # wasteful
         with PropertyGraphSink(global_id_marker, part_name, prefixer) as sink:
             ntp = NTriplesParser(sink=sink)
-            ntp.parsestring(part_str)
+            ntp.parse(in_file, left=left, right=right)
 
     triple_count = sum(sink.predicate_count.values())
     print(f'finished {part_name}: {triple_count} triples')
