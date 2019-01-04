@@ -30,6 +30,7 @@ class NTriplesParser(rdflib_nt.NTriplesParser):
             raise rdflib_nt.ParseError("Item to parse must be a file-like object.")
 
         cursor = in_file.seek(left)
+        progress_buffer = 0
         # since N-Triples 1.1 files can and should be utf-8 encoded
         utf8_stream = codecs.getreader('utf-8')(in_file)
         self.file = utf8_stream
@@ -43,7 +44,11 @@ class NTriplesParser(rdflib_nt.NTriplesParser):
                 progress = new_cursor - cursor
                 if right:
                     progress = min(new_cursor, right) - cursor
-                self.update_progress(progress)
+
+                progress_buffer += progress
+                if progress_buffer > 1024 * 1024:
+                    self.update_progress(progress_buffer)
+                    progress_buffer = 0
 
             if self.line is None:
                 break
