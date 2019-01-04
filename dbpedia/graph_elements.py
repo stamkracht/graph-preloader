@@ -10,6 +10,7 @@ import requests
 from bs4 import BeautifulSoup
 from rdflib import Literal
 from requests import RequestException
+from tqdm import tqdm
 
 from dbpedia.compute_parts import compute_parts
 from dbpedia.parser import NTriplesParser
@@ -30,11 +31,12 @@ def transform_part(
         left,
         right,
         prefixer=None,
+        update_progress=None,
 ):
     print(f'starting {part_name}: {left} -- {right}')
     with open(input_path, 'rb') as in_file:
         with PropertyGraphSink(global_id_marker, part_name, prefixer) as sink:
-            ntp = NTriplesParser(sink=sink)
+            ntp = NTriplesParser(sink=sink, update_progress=update_progress)
             ntp.parse(in_file, left=left, right=right)
 
     triple_count = sum(sink.predicate_count.values())
@@ -50,9 +52,26 @@ def make_graph_elements(args):
     if args.shorten_uris:
         prefixer = NamespacePrefixer()
 
+    progress_bar = tqdm(
+        total=os.path.getsize(args.input_path),
+        unit='b',
+        unit_scale=True,
+        unit_divisor=1024,
+        mininterval=0.4,
+    )
+
     if args.parallel:
-        pool = multiprocessing.Pool()
+        pool = multiprocessing.Pool(multiprocessing.cpu_count() - 1)
+        multi_manager = multiprocessing.Manager()
+        queue = multi_manager.Queue(1024)
         tasks = []
+
+        def progress_listener(queue):
+            for item in iter(queue.get, None):
+                progress_bar.update(item)
+
+        listener_process = multiprocessing.Process(target=progress_listener, args=(queue,))
+        listener_process.start()
 
         for part_path, left, right in parts:
             tasks.append(pool.apply_async(
@@ -63,6 +82,7 @@ def make_graph_elements(args):
                     left,
                     right,
                     prefixer,
+                    queue.put
                 )
             ))
 
@@ -71,6 +91,9 @@ def make_graph_elements(args):
             for task in tasks
         ]
         pool.close()
+
+        queue.put(None)
+        listener_process.join()
     else:
         results = [
             transform_part(
@@ -80,6 +103,7 @@ def make_graph_elements(args):
                 left,
                 right,
                 prefixer,
+                progress_bar.update
             )
             for part_path, left, right in parts
         ]
@@ -87,6 +111,8 @@ def make_graph_elements(args):
     pcounts_path = os.path.join(args.output_dir, 'predicate-counts.json')
     with open(pcounts_path, 'w') as pcounts_file:
         json.dump(dict(results), pcounts_file, indent=4)
+
+    progress_bar.close()
     print(f'\nDone! Predicate counts have been saved to {pcounts_path}')
 
 
