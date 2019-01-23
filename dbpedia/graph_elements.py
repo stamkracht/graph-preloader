@@ -86,7 +86,7 @@ def make_graph_elements(args):
                 )
             ))
 
-        results = [
+        meta_results = [
             task.get(timeout=args.task_timeout)
             for task in tasks
         ]
@@ -95,7 +95,7 @@ def make_graph_elements(args):
         queue.put(None)
         listener_process.join()
     else:
-        results = [
+        meta_results = [
             transform_part(
                 args.input_path,
                 args.global_id_marker,
@@ -110,7 +110,7 @@ def make_graph_elements(args):
 
     pcounts_path = os.path.join(args.output_dir, 'predicate-counts.json')
     with open(pcounts_path, 'w') as pcounts_file:
-        json.dump(dict(results), pcounts_file, indent=4)
+        json.dump(dict(meta_results), pcounts_file, indent=4)
 
     progress_bar.close()
     print(f'\nDone! Predicate counts have been saved to {pcounts_path}')
