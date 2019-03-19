@@ -148,9 +148,7 @@ class PropertyGraphSink:
             return
 
         qn_subj, qn_pred, qn_obj = str(subj), str(pred), str(obj)
-        wd_subj = fetch_wikidata_uri(subj)
         if self.prefixer:
-            wd_subj = self.prefixer.qname(wd_subj)
             qn_subj = self.prefixer.qname(subj)
             qn_pred = self.prefixer.qname(pred)
             qn_obj = self.prefixer.qname(obj)
@@ -160,8 +158,7 @@ class PropertyGraphSink:
             self.flush_buffers()
             self.last_subject = subj
 
-        self.vertex_buffer['id'] = wd_subj
-        self.vertex_buffer['cluster-id'] = qn_subj
+        self.vertex_buffer['id'] = qn_subj
 
         if str(pred) in MULTIVALUED_URI_PROPS:
             # ignore "dbg:A owl:sameAs dbg:A"
@@ -173,9 +170,9 @@ class PropertyGraphSink:
             # create an edge
             wd_obj = fetch_wikidata_uri(obj)
             self.edge_buffer.append({
-                'outv': wd_subj,
+                'outv': qn_subj,
                 'label': qn_pred,
-                'inv': wd_obj
+                'inv': qn_obj
             })
         # we'll add something to the vertex buffer
         elif isinstance(obj, Literal):
@@ -226,6 +223,13 @@ class PropertyGraphSink:
 
     def flush_vertex(self):
         if self.vertex_buffer:
+            # todo: if self.samething_service: ...
+            wd_subj = fetch_wikidata_uri(self.last_subject)
+            if self.prefixer:
+                wd_subj = self.prefixer.qname(wd_subj)
+            self.vertex_buffer['dbg:cluster-id'] = self.last_subject
+            self.vertex_buffer['id'] = wd_subj
+
             with open(f'{self.part_name}_vertices.jsonl', 'a', encoding='utf8') as out_file:
                 json.dump(self.vertex_buffer, out_file, default=str)
                 out_file.write('\n')
@@ -236,6 +240,19 @@ class PropertyGraphSink:
         if self.edge_buffer:
             with open(f'{self.part_name}_edges.jsonl', 'a', encoding='utf8') as out_file:
                 for edge in self.edge_buffer:
+                    # todo: if self.samething_service: ...
+                    wd_subj = fetch_wikidata_uri(self.last_subject)
+                    if self.prefixer:
+                        wd_subj = self.prefixer.qname(wd_subj)
+                        wd_obj = self.prefixer.qname(
+                            fetch_wikidata_uri(self.prefixer.reverse(edge['inv']))
+                        )
+                    else:
+                        wd_obj = fetch_wikidata_uri(edge['inv'])
+
+                    edge['outv'] = wd_subj
+                    edge['inv'] = wd_obj
+
                     json.dump(edge, out_file, default=str)
                     out_file.write('\n')
 
@@ -265,6 +282,9 @@ class NamespacePrefixer(UserDict):
         self['https://global.dbpedia.org/id/'] = 'dbg'
         self['http://www.wikidata.org/entity/'] = 'wde'
 
+        # reverse mapping
+        self.reverse_dict = {pf: ns for ns, pf in self.items()}
+
     def qname(self, iri):
         try:
             namespace, local_name = self.split_iri(iri)
@@ -275,6 +295,17 @@ class NamespacePrefixer(UserDict):
             return f'{self[namespace]}:{local_name}'
         else:
             return iri
+
+    def reverse(self, qname):
+        try:
+            prefix, local_name = qname.split(':', maxsplit=1)
+        except ValueError:
+            return qname
+
+        if prefix in self.reverse_dict:
+            return f'{self.reverse_dict[prefix]}{local_name}'
+        else:
+            return qname
 
     def split_iri(self, iri):
         iri_split = self.separator_re.split(iri)
