@@ -1,3 +1,4 @@
+import functools
 import glob
 import json
 import multiprocessing
@@ -22,6 +23,7 @@ MULTIVALUED_URI_PROPS = {
     'http://www.w3.org/1999/02/22-rdf-syntax-ns#type',
     'http://dbpedia.org/ontology/wikiPageExternalLink',
 }
+SAMETHING_SERVICE = 'https://e.hum.uva.nl/same-thing/' #'http://downloads.dbpedia.org/same-thing/'
 
 
 def transform_part(
@@ -146,7 +148,9 @@ class PropertyGraphSink:
             return
 
         qn_subj, qn_pred, qn_obj = str(subj), str(pred), str(obj)
+        wd_subj = fetch_wikidata_uri(subj)
         if self.prefixer:
+            wd_subj = self.prefixer.qname(wd_subj)
             qn_subj = self.prefixer.qname(subj)
             qn_pred = self.prefixer.qname(pred)
             qn_obj = self.prefixer.qname(obj)
@@ -156,7 +160,8 @@ class PropertyGraphSink:
             self.flush_buffers()
             self.last_subject = subj
 
-        self.vertex_buffer['id'] = qn_subj
+        self.vertex_buffer['id'] = wd_subj
+        self.vertex_buffer['cluster-id'] = qn_subj
 
         if str(pred) in MULTIVALUED_URI_PROPS:
             # ignore "dbg:A owl:sameAs dbg:A"
@@ -166,10 +171,11 @@ class PropertyGraphSink:
 
         elif self.global_id_marker in obj:
             # create an edge
+            wd_obj = fetch_wikidata_uri(obj)
             self.edge_buffer.append({
-                'outv': qn_subj,
+                'outv': wd_subj,
                 'label': qn_pred,
-                'inv': qn_obj
+                'inv': wd_obj
             })
         # we'll add something to the vertex buffer
         elif isinstance(obj, Literal):
@@ -315,3 +321,21 @@ class NamespacePrefixer(UserDict):
             json.dump(ns_to_prefix, ns_file, indent=4)
 
         return ns_to_prefix
+
+
+@functools.lru_cache(maxsize=4096)
+def fetch_wikidata_uri(resource_iri):
+    wikidata_root = f'http://www.wikidata.org/entity/'
+    canonical_iri = None
+    response = requests.get(f'{SAMETHING_SERVICE}lookup/?meta=off&uri={resource_iri}')
+    if response.ok:
+        for iri in response.json()['locals']:
+            if iri.startswith(wikidata_root):
+                canonical_iri = iri
+                break
+
+    if not canonical_iri:
+        canonical_iri = resource_iri
+        print(f'same-thing: item id {resource_iri} was not found. Not transforming')
+
+    return canonical_iri
