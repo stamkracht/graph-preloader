@@ -165,7 +165,7 @@ class PropertyGraphSink:
 
         if str(pred) in MULTIVALUED_URI_PROPS:
             # ignore "dbg:A owl:sameAs dbg:A"
-            if not subj == obj and str(pred) == OWL_SAME_AS:
+            if not (subj == obj and str(pred) == OWL_SAME_AS):
                 # append simple multivalued prop
                 self.vertex_buffer[qn_pred].append(qn_obj)
 
