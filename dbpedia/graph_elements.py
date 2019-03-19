@@ -238,7 +238,7 @@ class PropertyGraphSink:
                 wd_subj = fetch_wikidata_uri(self.samething_service, self.last_subject)
                 if self.prefixer:
                     wd_subj = self.prefixer.qname(wd_subj)
-                self.vertex_buffer['dbg:cluster-id'] = self.last_subject
+                self.vertex_buffer['dbg:cluster-id'] = self.vertex_buffer['id']
                 self.vertex_buffer['id'] = wd_subj
 
             with open(f'{self.part_name}_vertices.jsonl', 'a', encoding='utf8') as out_file:
