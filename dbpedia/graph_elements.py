@@ -356,7 +356,8 @@ class NamespacePrefixer(UserDict):
 def fetch_wikidata_uri(samething_service_url, resource_iri):
     wikidata_base = f'http://www.wikidata.org/entity/'
     canonical_iri = None
-    response = requests.get(f'{samething_service_url}lookup/?meta=off&uri={resource_iri}')
+    request_uri = f'{samething_service_url}lookup/?meta=off&uri={resource_iri}'
+    response = requests.get(request_uri)
     if response.ok:
         for iri in response.json()['locals']:
             if iri.startswith(wikidata_base):
@@ -365,6 +366,6 @@ def fetch_wikidata_uri(samething_service_url, resource_iri):
 
     if not canonical_iri:
         canonical_iri = resource_iri
-        print(f'same-thing: item id {resource_iri} was not found. Not transforming')
+        print(f'same-thing: no Wikidata URI found by {request_uri}')
 
     return canonical_iri
