@@ -60,6 +60,10 @@ arg_parser.add_argument(
     help='shorten URIs by replacing known namespaces with their corresponding prefix'
 )
 arg_parser.add_argument(
+    '--samething-service',
+    help='the base URL of a DBpedia Same Thing Service endpoint, e.g. http://downloads.dbpedia.org/same-thing/'
+)
+arg_parser.add_argument(
     '--target-size',
     type=cast_int,
     default=os.environ.get('TARGET_SIZE', '500e6'),  # bytes

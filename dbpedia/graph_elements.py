@@ -23,7 +23,6 @@ MULTIVALUED_URI_PROPS = {
     'http://www.w3.org/1999/02/22-rdf-syntax-ns#type',
     'http://dbpedia.org/ontology/wikiPageExternalLink',
 }
-SAMETHING_SERVICE = 'https://e.hum.uva.nl/same-thing/' #'http://downloads.dbpedia.org/same-thing/'
 
 
 def transform_part(
@@ -33,11 +32,12 @@ def transform_part(
         left,
         right,
         prefixer=None,
+        samething_service=None,
         update_progress=None,
 ):
     print(f'starting {part_name}: {left} -- {right}')
     with open(input_path, 'rb') as in_file:
-        with PropertyGraphSink(global_id_marker, part_name, prefixer) as sink:
+        with PropertyGraphSink(global_id_marker, part_name, prefixer, samething_service) as sink:
             ntp = NTriplesParser(sink=sink, update_progress=update_progress)
             ntp.parse(in_file, left=left, right=right)
 
@@ -84,6 +84,7 @@ def make_graph_elements(args):
                     left,
                     right,
                     prefixer,
+                    args.samething_service,
                     queue.put
                 )
             ))
@@ -105,6 +106,7 @@ def make_graph_elements(args):
                 left,
                 right,
                 prefixer,
+                args.samething_service,
                 progress_bar.update
             )
             for part_path, left, right in parts
@@ -120,10 +122,11 @@ def make_graph_elements(args):
 
 class PropertyGraphSink:
 
-    def __init__(self, global_id_marker, part_name, prefixer=None):
+    def __init__(self, global_id_marker, part_name, prefixer=None, samething_service=None):
         self.global_id_marker = global_id_marker
         self.part_name = part_name
         self.prefixer = prefixer
+        self.samething_service = samething_service
         self.predicate_count = Counter()
         self.vertex_buffer = defaultdict(list)
         self.edge_buffer = []
@@ -168,12 +171,20 @@ class PropertyGraphSink:
 
         elif self.global_id_marker in obj:
             # create an edge
-            wd_obj = fetch_wikidata_uri(obj)
+            wd_subj, wd_obj = None, None
+            if self.samething_service:
+                wd_subj = fetch_wikidata_uri(self.samething_service, subj)
+                wd_obj = fetch_wikidata_uri(self.samething_service, obj)
+                if self.prefixer:
+                    wd_subj = self.prefixer.qname(wd_subj)
+                    wd_obj = self.prefixer.qname(wd_obj)
+
             self.edge_buffer.append({
-                'outv': qn_subj,
+                'outv': wd_subj or qn_subj,
                 'label': qn_pred,
-                'inv': qn_obj
+                'inv': wd_obj or qn_obj
             })
+
         # we'll add something to the vertex buffer
         elif isinstance(obj, Literal):
             if obj.language:
@@ -223,12 +234,12 @@ class PropertyGraphSink:
 
     def flush_vertex(self):
         if self.vertex_buffer:
-            # todo: if self.samething_service: ...
-            wd_subj = fetch_wikidata_uri(self.last_subject)
-            if self.prefixer:
-                wd_subj = self.prefixer.qname(wd_subj)
-            self.vertex_buffer['dbg:cluster-id'] = self.last_subject
-            self.vertex_buffer['id'] = wd_subj
+            if self.samething_service:
+                wd_subj = fetch_wikidata_uri(self.samething_service, self.last_subject)
+                if self.prefixer:
+                    wd_subj = self.prefixer.qname(wd_subj)
+                self.vertex_buffer['dbg:cluster-id'] = self.last_subject
+                self.vertex_buffer['id'] = wd_subj
 
             with open(f'{self.part_name}_vertices.jsonl', 'a', encoding='utf8') as out_file:
                 json.dump(self.vertex_buffer, out_file, default=str)
@@ -240,19 +251,6 @@ class PropertyGraphSink:
         if self.edge_buffer:
             with open(f'{self.part_name}_edges.jsonl', 'a', encoding='utf8') as out_file:
                 for edge in self.edge_buffer:
-                    # todo: if self.samething_service: ...
-                    wd_subj = fetch_wikidata_uri(self.last_subject)
-                    if self.prefixer:
-                        wd_subj = self.prefixer.qname(wd_subj)
-                        wd_obj = self.prefixer.qname(
-                            fetch_wikidata_uri(self.prefixer.reverse(edge['inv']))
-                        )
-                    else:
-                        wd_obj = fetch_wikidata_uri(edge['inv'])
-
-                    edge['outv'] = wd_subj
-                    edge['inv'] = wd_obj
-
                     json.dump(edge, out_file, default=str)
                     out_file.write('\n')
 
@@ -355,13 +353,13 @@ class NamespacePrefixer(UserDict):
 
 
 @functools.lru_cache(maxsize=4096)
-def fetch_wikidata_uri(resource_iri):
-    wikidata_root = f'http://www.wikidata.org/entity/'
+def fetch_wikidata_uri(samething_service_url, resource_iri):
+    wikidata_base = f'http://www.wikidata.org/entity/'
     canonical_iri = None
-    response = requests.get(f'{SAMETHING_SERVICE}lookup/?meta=off&uri={resource_iri}')
+    response = requests.get(f'{samething_service_url}lookup/?meta=off&uri={resource_iri}')
     if response.ok:
         for iri in response.json()['locals']:
-            if iri.startswith(wikidata_root):
+            if iri.startswith(wikidata_base):
                 canonical_iri = iri
                 break
 
