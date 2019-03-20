@@ -102,7 +102,7 @@ arg_parser.add_argument(
 arg_parser.add_argument(
     '--task-timeout',
     type=int,
-    default=os.environ.get('TASK_TIMEOUT', 10 * 60),  # seconds
+    default=os.environ.get('TASK_TIMEOUT', 120 * 60),  # seconds
     help='the number of seconds a "transform part" task is allowed to run '
          '(applies only to parallel execution)'
 )

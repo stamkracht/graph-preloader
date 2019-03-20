@@ -79,7 +79,7 @@ The DBpedia preloader tool can be used as follows:
       --task-timeout TASK_TIMEOUT
                             the number of seconds a "transform part" task is
                             allowed to run (applies only to parallel execution)
-                            (default: 600)
+                            (default: 7200)
       --search-type {binary,jump}
                             the type of search to use to skip to the first
                             `global_id_marker` triple (default: binary)
