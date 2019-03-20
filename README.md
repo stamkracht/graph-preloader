@@ -31,9 +31,8 @@ Specifying output filenames is a possible future enhancement.
 
 The DBpedia preloader tool can be used as follows:
 
-    pipenv run python -m dbpedia.preloader -h
-    usage: preloader.py [-h] [--parallel] [--shorten-uris]
-                        [--target-size TARGET_SIZE]
+    $ pipenv run python -m dbpedia.preloader -h
+    usage: preloader.py [-h] [-p] [-su] [-sts STS_URL] [-ts TARGET_SIZE] [-v VL]
                         [--global-id-marker GLOBAL_ID_MARKER]
                         [--id-marker-prefix ID_MARKER_PREFIX]
                         [--parts-file PARTS_FILE] [--task-timeout TASK_TIMEOUT]
@@ -41,29 +40,38 @@ The DBpedia preloader tool can be used as follows:
                         [--bin-search-limit BIN_SEARCH_LIMIT]
                         [--jump-size JUMP_SIZE] [--backpedal-size BACKPEDAL_SIZE]
                         [input_path] [output_dir]
-
+    
     Transform sorted Databus NTriples into property graph-friendly JSON.
-
+    
     positional arguments:
       input_path            the Databus NTriples input file path (default:
-                            graph-preloader/dbpedia/sorted.nt)
+                            /home/alex/Qollap/graph-preloader/dbpedia/sorted.nt)
       output_dir            the JSON output directory path (default:
-                            graph-preloader/dbpedia/output_{hex}/)
-
+                            /home/alex/Qollap/graph-
+                            preloader/dbpedia/output_5c925350/)
+    
     optional arguments:
       -h, --help            show this help message and exit
-      --parallel            transform parts in parallel using a multiprocessing
+      -p, --parallel        transform parts in parallel using a multiprocessing
                             pool (default: False)
-      --shorten-uris        shorten URIs by replacing known namespaces with their
+      -su, --shorten-uris   shorten URIs by replacing known namespaces with their
                             corresponding prefix (default: False)
-      --target-size TARGET_SIZE
-                            the approximate size of parts in bytes (default: 500e6)
+      -sts STS_URL, --samething-service STS_URL
+                            the base URL of a DBpedia Same Thing Service endpoint,
+                            e.g. http://downloads.dbpedia.org/same-thing/
+                            (default: None)
+      -ts TARGET_SIZE, --target-size TARGET_SIZE
+                            the approximate size of parts in bytes (default:
+                            500e6)
+      -v VL, --verbosity VL
+                            verbosity level for messages printed to stdout &
+                            stderr (default: 1)
       --global-id-marker GLOBAL_ID_MARKER
                             only triples with this marker in the subject will be
                             transformed (default: global.dbpedia.org/id/)
       --id-marker-prefix ID_MARKER_PREFIX
                             the characters that precede the `global_id_marker` in
-                            each triple (default: <http://)
+                            each triple (default: <https://)
       --parts-file PARTS_FILE
                             the file in which output files are listed with
                             corresponding input file positions (left and right)
@@ -81,5 +89,6 @@ The DBpedia preloader tool can be used as follows:
       --jump-size JUMP_SIZE
                             the size of forward jumps in bytes (default: 350e6)
       --backpedal-size BACKPEDAL_SIZE
-                            the size of backpedals in bytes (default: <jump_size> // 10)
+                            the size of backpedals in bytes (default: <jump_size>
+                            // 10)
 
