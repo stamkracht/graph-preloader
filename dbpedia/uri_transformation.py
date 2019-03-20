@@ -7,7 +7,7 @@ import requests
 from bs4 import BeautifulSoup
 from requests import RequestException
 
-from dbpedia.utils import base_path
+from dbpedia.utils import base_path, get_verbosity
 
 
 class NamespacePrefixer(UserDict):
@@ -118,6 +118,7 @@ class SameThingClient:
 
         if not canonical_iri:
             canonical_iri = resource_iri
-            print(f'same-thing: no Wikidata URI found by {request_uri}')
+            if get_verbosity() > 1:
+                print(f'same-thing: no Wikidata URI found by {request_uri}')
 
         return canonical_iri

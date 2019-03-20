@@ -3,9 +3,9 @@ import os
 import sys
 import time
 
+import dbpedia.utils
 from dbpedia.compute_parts import SEARCH_TYPE_CHOICES, BINARY_SEARCH_TYPE
 from dbpedia.graph_elements import make_graph_elements
-from dbpedia.utils import base_path
 
 arg_parser = argparse.ArgumentParser(
     description='Transform sorted Databus NTriples into property graph-friendly JSON.',
@@ -23,6 +23,10 @@ def parse_arguments(arg_list, parser=arg_parser, **kwargs):
         args, 'parts_file', os.path.join(args.output_dir, 'parts.tsv')
     )
     args.backpedal_size = getattr(args, 'backpedal_size', args.jump_size // 10)
+
+    # set verbosity level in utils
+    dbpedia.utils.VERBOSITY = args.verbosity
+
     return args
 
 
@@ -32,42 +36,50 @@ def cast_int(str_or_number):
 
 def get_timed_output_path(prefix='output'):
     this_second_hex = hex(int(time.time()))
-    return base_path(f'{prefix}_{this_second_hex[2:]}/')
+    return dbpedia.utils.base_path(f'{prefix}_{this_second_hex[2:]}/')
 
 
 arg_parser.add_argument(
     'input_path',
-    nargs='?',
+    nargs=argparse.OPTIONAL,
     type=os.path.abspath,
-    default=os.environ.get('INPUT_PATH', base_path('sorted.nt')),
+    default=os.environ.get('INPUT_PATH', dbpedia.utils.base_path('sorted.nt')),
     help='the Databus NTriples input file path'
 )
 arg_parser.add_argument(
     'output_dir',
-    nargs='?',
+    nargs=argparse.OPTIONAL,
     type=os.path.abspath,
     default=os.environ.get('OUTPUT_DIR', get_timed_output_path()),
     help='the JSON output directory path'
 )
 arg_parser.add_argument(
-    '--parallel',
+    '-p', '--parallel',
     action='store_true',
     help='transform parts in parallel using a multiprocessing pool'
 )
 arg_parser.add_argument(
-    '--shorten-uris',
+    '-su', '--shorten-uris',
     action='store_true',
     help='shorten URIs by replacing known namespaces with their corresponding prefix'
 )
 arg_parser.add_argument(
-    '--samething-service',
-    help='the base URL of a DBpedia Same Thing Service endpoint, e.g. http://downloads.dbpedia.org/same-thing/'
-)
-arg_parser.add_argument(
-    '--target-size',
+    '-ts', '--target-size',
     type=cast_int,
     default=os.environ.get('TARGET_SIZE', '500e6'),  # bytes
     help='the approximate size of parts in bytes'
+)
+arg_parser.add_argument(
+    '-v', '--verbosity',
+    type=int,
+    default=1,
+    metavar='VL',
+    help='verbosity level for messages printed to stdout & stderr'
+)
+arg_parser.add_argument(
+    '-sts', '--samething-service',
+    metavar='STS_URL',
+    help='the base URL of a DBpedia Same Thing Service endpoint, e.g. http://downloads.dbpedia.org/same-thing/'
 )
 arg_parser.add_argument(
     '--global-id-marker',

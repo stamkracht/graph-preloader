@@ -1,5 +1,11 @@
 import os
 
+VERBOSITY = 1
+
+
+def get_verbosity():
+    return VERBOSITY
+
 
 def base_path(name_or_path):
     base_dir = os.path.dirname(
