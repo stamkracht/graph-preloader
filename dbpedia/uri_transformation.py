@@ -6,6 +6,8 @@ from collections import UserDict
 import requests
 from bs4 import BeautifulSoup
 from requests import RequestException
+from requests.adapters import HTTPAdapter
+from urllib3 import Retry
 
 from dbpedia.utils import base_path, get_verbosity
 
@@ -106,6 +108,9 @@ class SameThingClient:
     def __init__(self, samething_service_url):
         self.samething_service_url = samething_service_url
         self.session = requests.Session()
+
+        retries = Retry(total=5, backoff_factor=0.5, status_forcelist=[502, 503, 504])
+        self.session.mount('http', HTTPAdapter(max_retries=retries))
 
     @functools.lru_cache(maxsize=4096)
     def fetch_wikidata_uri(self, resource_iri):
