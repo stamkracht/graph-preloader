@@ -110,7 +110,9 @@ class SameThingClient:
         self.session = requests.Session()
 
         retries = Retry(total=5, backoff_factor=0.5, status_forcelist=[502, 503, 504])
-        self.session.mount('http', HTTPAdapter(max_retries=retries))
+        adapter = HTTPAdapter(max_retries=retries)
+        self.session.mount('https://', adapter)
+        self.session.mount('http://', adapter)
 
     @functools.lru_cache(maxsize=4096)
     def fetch_wikidata_uri(self, resource_iri):
