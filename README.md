@@ -45,10 +45,9 @@ The DBpedia preloader tool can be used as follows:
     
     positional arguments:
       input_path            the Databus NTriples input file path (default:
-                            /home/alex/Qollap/graph-preloader/dbpedia/sorted.nt)
+                            graph-preloader/dbpedia/sorted.nt)
       output_dir            the JSON output directory path (default:
-                            /home/alex/Qollap/graph-
-                            preloader/dbpedia/output_5c925350/)
+                            graph-preloader/dbpedia/output_{hex}/)
     
     optional arguments:
       -h, --help            show this help message and exit
@@ -89,6 +88,5 @@ The DBpedia preloader tool can be used as follows:
       --jump-size JUMP_SIZE
                             the size of forward jumps in bytes (default: 350e6)
       --backpedal-size BACKPEDAL_SIZE
-                            the size of backpedals in bytes (default: <jump_size>
-                            // 10)
+                            the size of backpedals in bytes (default: <jump_size> // 10)
 
