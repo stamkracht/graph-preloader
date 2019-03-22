@@ -47,7 +47,9 @@ class NamespacePrefixer(UserDict):
             return qname
 
         if prefix in self.reverse_dict:
-            return f'{self.reverse_dict[prefix]}{local_name}'
+            namespace = self.reverse_dict[prefix]
+            separator = '#' if namespace.endswith('.owl') else ''
+            return f'{namespace}{separator}{local_name}'
         else:
             return qname
 
